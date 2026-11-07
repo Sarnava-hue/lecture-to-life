@@ -31,3 +31,21 @@ node_modules/
 
 # Logs
 *.log
+
+
+# Next.js
+.next/
+out/
+build/
+.vercel/
+
+# Environment files
+.env*
+!.env.example
+
+# TypeScript
+*.tsbuildinfo
+
+# Frontend generated files
+frontend/.next/
+frontend/node_modules/
