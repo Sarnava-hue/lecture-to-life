@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { quizzesData } from "@/lib/mock-data";
+import { submitQuizAttempt } from "@/lib/services/study-service";
 import type { Quiz } from "@/types/study";
 
 export interface QuizStudioProps {
@@ -79,21 +80,20 @@ export default function QuizStudio({ initialLectureId }: QuizStudioProps) {
     setChecked(true);
   }
 
-  function handleNextQuestion() {
+  async function handleNextQuestion() {
     if (!activeQuiz) {
       return;
     }
 
     if (questionIndex + 1 >= activeQuiz.questions.length) {
-      const correctTotal = activeQuiz.questions.reduce((total, question) => {
-        return answers[question.id] === question.correctIndex ? total + 1 : total;
-      }, 0);
-      const scorePercent = Math.round(
-        (correctTotal / activeQuiz.questions.length) * 100
-      );
+      const result = await submitQuizAttempt({
+        quizId: activeQuiz.id,
+        answers,
+        elapsedSeconds,
+      });
       setBestScores((prev) => ({
         ...prev,
-        [activeQuiz.id]: Math.max(prev[activeQuiz.id] ?? 0, scorePercent),
+        [activeQuiz.id]: Math.max(prev[activeQuiz.id] ?? 0, result.scorePercent),
       }));
       setFinished(true);
       return;

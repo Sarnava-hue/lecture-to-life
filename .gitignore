@@ -42,6 +42,7 @@ build/
 # Environment files
 .env*
 !.env.example
+!.env.local.example
 
 # TypeScript
 *.tsbuildinfo

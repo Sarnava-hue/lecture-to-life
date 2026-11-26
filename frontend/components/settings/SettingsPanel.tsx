@@ -2,7 +2,14 @@
 
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
-import { CheckCircle2, Monitor, Moon, Sun } from "lucide-react";
+import {
+  Activity,
+  CheckCircle2,
+  Loader2,
+  Monitor,
+  Moon,
+  Sun,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +21,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { API_BASE_URL, isMockModeEnabled } from "@/lib/api-client";
+import { checkBackendHealth } from "@/lib/services/study-service";
 
 type ThemeChoice = "light" | "dark" | "system";
 
@@ -46,6 +55,12 @@ export default function SettingsPanel() {
   const [quizDifficulty, setQuizDifficulty] = useState("Medium");
   const [savedBanner, setSavedBanner] = useState(false);
 
+  const [checkingHealth, setCheckingHealth] = useState(false);
+  const [healthResult, setHealthResult] = useState<{
+    reachable: boolean;
+    status: string;
+  } | null>(null);
+
   const themeChoice = useSyncExternalStore<ThemeChoice>(
     subscribeThemeStorage,
     getStoredTheme,
@@ -76,12 +91,19 @@ export default function SettingsPanel() {
     setTimeout(() => setSavedBanner(false), 2500);
   }
 
+  async function handleTestBackend() {
+    setCheckingHealth(true);
+    const result = await checkBackendHealth();
+    setHealthResult(result);
+    setCheckingHealth(false);
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Settings</h1>
         <p className="mt-1.5 text-muted-foreground">
-          Manage your profile, study targets, appearance, and account options.
+          Manage your profile, study targets, appearance, and backend API status.
         </p>
       </div>
 
@@ -94,7 +116,7 @@ export default function SettingsPanel() {
             Appearance
           </TabsTrigger>
           <TabsTrigger value="account" className="px-3 py-1.5">
-            Account
+            Account &amp; API
           </TabsTrigger>
         </TabsList>
 
@@ -234,7 +256,56 @@ export default function SettingsPanel() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="account">
+        <TabsContent value="account" className="space-y-5">
+          <Card className="rounded-2xl py-6 shadow-sm">
+            <CardHeader className="px-6">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-lg font-semibold">
+                    Backend Connection
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    API Base URL:{" "}
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                      {API_BASE_URL}
+                    </code>
+                  </CardDescription>
+                </div>
+                <Badge variant={isMockModeEnabled() ? "secondary" : "default"}>
+                  {isMockModeEnabled() ? "Mock Fallback On" : "Live API Mode"}
+                </Badge>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-4 px-6">
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={checkingHealth}
+                  onClick={handleTestBackend}
+                >
+                  {checkingHealth ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Activity size={15} />
+                  )}
+                  Ping FastAPI /health
+                </Button>
+
+                {healthResult && (
+                  <Badge
+                    variant={healthResult.reachable ? "default" : "destructive"}
+                  >
+                    {healthResult.reachable
+                      ? `Connected (${healthResult.status})`
+                      : "Backend unreachable (check uvicorn & CORS)"}
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="rounded-2xl py-6 shadow-sm">
             <CardHeader className="px-6">
               <div className="flex items-center justify-between gap-2">

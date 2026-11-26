@@ -24,10 +24,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { extractApiErrorMessage } from "@/lib/api-client";
+import { pollLectureStatus, uploadLecture } from "@/lib/services/study-service";
+import type { GenerationTarget } from "@/types/api";
 
 type UploadStatus = "idle" | "uploading" | "processing" | "success" | "error";
-
-type GenerationTarget = "summary" | "flashcards" | "quiz" | "conceptMap";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
@@ -69,7 +70,7 @@ function stripExtension(filename: string): string {
 
 export default function LectureUploader() {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
@@ -84,14 +85,15 @@ export default function LectureUploader() {
   const [isDragging, setIsDragging] = useState(false);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [error, setError] = useState("");
+  const [uploadedLectureId, setUploadedLectureId] = useState("1");
 
-  function clearTimers() {
-    timersRef.current.forEach((timerId) => clearTimeout(timerId));
-    timersRef.current = [];
+  function abortOngoingUpload() {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
   }
 
   useEffect(() => {
-    return () => clearTimers();
+    return () => abortOngoingUpload();
   }, []);
 
   function isSupportedFile(selectedFile: File): boolean {
@@ -120,7 +122,7 @@ export default function LectureUploader() {
   }
 
   function handleFile(selectedFile: File) {
-    clearTimers();
+    abortOngoingUpload();
     setError("");
 
     const validationError = validateFile(selectedFile);
@@ -174,7 +176,7 @@ export default function LectureUploader() {
   }
 
   function removeFile() {
-    clearTimers();
+    abortOngoingUpload();
     setFile(null);
     setTitle("");
     setSubject("");
@@ -187,7 +189,7 @@ export default function LectureUploader() {
     }
   }
 
-  function handleUpload() {
+  async function handleUpload() {
     if (!file) {
       setError("Please select a lecture file first.");
       return;
@@ -203,28 +205,57 @@ export default function LectureUploader() {
       return;
     }
 
-    clearTimers();
+    abortOngoingUpload();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setError("");
     setStatus("uploading");
-    setProgress(25);
+    setProgress(10);
 
-    // Temporary mock processing.
-    // Later this will call Member 1's backend API.
-    const midUploadTimer = setTimeout(() => {
-      setProgress(55);
-    }, 650);
+    try {
+      const uploadResponse = await uploadLecture(
+        file,
+        {
+          title: title.trim(),
+          subject: subject.trim() || "General",
+          targets: selectedTargets,
+        },
+        {
+          signal: controller.signal,
+          onProgress: (pct) => setProgress(pct),
+        }
+      );
 
-    const processingTimer = setTimeout(() => {
+      setUploadedLectureId(uploadResponse.lecture_id);
       setStatus("processing");
-      setProgress(82);
-    }, 1500);
+      setProgress(88);
 
-    const successTimer = setTimeout(() => {
+      const finalStatus = await pollLectureStatus(uploadResponse.lecture_id, {
+        signal: controller.signal,
+        onTick: (tick) => {
+          if (typeof tick.progress === "number") {
+            setProgress(tick.progress);
+          }
+        },
+      });
+
+      if (finalStatus.status === "failed") {
+        setStatus("error");
+        setError(finalStatus.error || "Processing failed on the server.");
+        return;
+      }
+
       setProgress(100);
       setStatus("success");
-    }, 3600);
-
-    timersRef.current = [midUploadTimer, processingTimer, successTimer];
+    } catch (err) {
+      if (controller.signal.aborted) {
+        return;
+      }
+      const normalized = extractApiErrorMessage(err);
+      setError(normalized.message);
+      setStatus("error");
+    }
   }
 
   const isAudioOrVideo =
@@ -308,13 +339,13 @@ export default function LectureUploader() {
                 </p>
               </div>
 
-              {(status === "idle" || status === "error") && (
+              {status !== "success" && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
                   onClick={removeFile}
-                  aria-label="Remove file"
+                  aria-label="Cancel or remove file"
                 >
                   <X size={18} />
                 </Button>
@@ -405,7 +436,7 @@ export default function LectureUploader() {
                       : "bg-amber-500/10 text-amber-700 dark:text-amber-300"
                   }`}
                 >
-                  <Loader2 size={18} className="animate-spin shrink-0" />
+                  <Loader2 size={18} className="shrink-0 animate-spin" />
                   <div>
                     <p className="font-medium">
                       {status === "uploading"
@@ -424,11 +455,6 @@ export default function LectureUploader() {
 
             {status === "error" && (
               <div className="space-y-3">
-                <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-                  <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                  <p>Upload failed. Please try again.</p>
-                </div>
-
                 <Button
                   type="button"
                   size="lg"
@@ -452,18 +478,18 @@ export default function LectureUploader() {
                     </p>
 
                     <p className="mt-1 text-xs opacity-90">
-                      Preview mode active: explore a complete lecture session or upload another file.
+                      Your study resources are ready to explore.
                     </p>
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Button
-                    render={<Link href="/lectures/1" />}
+                    render={<Link href={`/lectures/${uploadedLectureId}`} />}
                     nativeButton={false}
                     className="h-10 flex-1 rounded-xl text-sm font-semibold"
                   >
-                    Open sample study session
+                    Open study session
                     <ArrowRight size={16} />
                   </Button>
 

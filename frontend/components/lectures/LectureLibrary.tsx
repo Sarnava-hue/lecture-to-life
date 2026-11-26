@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { lecturesData } from "@/lib/mock-data";
+import { deleteLecture } from "@/lib/services/study-service";
 import type { Lecture, LectureStatus } from "@/types/study";
 
 const statusLabel: Record<LectureStatus, string> = {
@@ -67,12 +68,14 @@ export default function LectureLibrary() {
     });
   }, [lectures, searchQuery, selectedSubject]);
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) {
       return;
     }
-    setLectures((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+    const targetId = deleteTarget.id;
+    setLectures((prev) => prev.filter((item) => item.id !== targetId));
     setDeleteTarget(null);
+    await deleteLecture(targetId);
   }
 
   return (

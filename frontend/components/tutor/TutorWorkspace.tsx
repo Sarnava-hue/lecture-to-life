@@ -14,8 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { extractApiErrorMessage } from "@/lib/api-client";
 import { initialTutorMessages, lecturesData } from "@/lib/mock-data";
-import type { TutorCitation, TutorMessage } from "@/types/study";
+import { askTutor } from "@/lib/services/study-service";
+import type { TutorMessage } from "@/types/study";
 
 const suggestedPromptsByScope: Record<string, string[]> = {
   all: [
@@ -40,51 +42,6 @@ const suggestedPromptsByScope: Record<string, string[]> = {
   ],
 };
 
-function generateGroundedReply(
-  question: string,
-  scopeId: string
-): { content: string; citations: TutorCitation[] } {
-  const pool =
-    scopeId === "all"
-      ? lecturesData
-      : lecturesData.filter((lecture) => lecture.id === scopeId);
-
-  const tokens = question
-    .toLowerCase()
-    .split(/\W+/)
-    .filter((word) => word.length > 3);
-
-  let bestLecture = pool[0] ?? lecturesData[0];
-  let bestSegment = bestLecture.segments[0];
-  let bestScore = -1;
-
-  for (const lecture of pool) {
-    for (const segment of lecture.segments) {
-      const haystack = `${lecture.title} ${segment.label} ${segment.text}`.toLowerCase();
-      const score = tokens.reduce(
-        (acc, token) => (haystack.includes(token) ? acc + 1 : acc),
-        0
-      );
-      if (score > bestScore) {
-        bestScore = score;
-        bestLecture = lecture;
-        bestSegment = segment;
-      }
-    }
-  }
-
-  return {
-    content: `Based on "${bestLecture.title}" (${bestSegment.label}): ${bestSegment.text}\n\nKey takeaway: ${bestLecture.keyTakeaways[0]}`,
-    citations: [
-      {
-        lectureId: bestLecture.id,
-        lectureTitle: bestLecture.title,
-        reference: bestSegment.reference,
-      },
-    ],
-  };
-}
-
 export interface TutorWorkspaceProps {
   initialLectureId?: string;
 }
@@ -103,15 +60,11 @@ export default function TutorWorkspace({
   const [input, setInput] = useState("");
   const [isResponding, setIsResponding] = useState(false);
 
-  const replyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    return () => {
-      if (replyTimerRef.current) {
-        clearTimeout(replyTimerRef.current);
-      }
-    };
+    return () => abortRef.current?.abort();
   }, []);
 
   useEffect(() => {
@@ -119,20 +72,22 @@ export default function TutorWorkspace({
   }, [messages, isResponding]);
 
   function handleResetChat() {
-    if (replyTimerRef.current) {
-      clearTimeout(replyTimerRef.current);
-      replyTimerRef.current = null;
-    }
+    abortRef.current?.abort();
+    abortRef.current = null;
     setIsResponding(false);
     setChatSession((prev) => prev + 1);
     setMessages(initialTutorMessages);
   }
 
-  function handleSendMessage(text: string) {
+  async function handleSendMessage(text: string) {
     const trimmed = text.trim();
     if (!trimmed || isResponding) {
       return;
     }
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     const nextOrdinal = messages.length + 1;
     const userMsg: TutorMessage = {
@@ -146,29 +101,51 @@ export default function TutorWorkspace({
     setInput("");
     setIsResponding(true);
 
-    replyTimerRef.current = setTimeout(() => {
-      const reply = generateGroundedReply(trimmed, scopeId);
+    try {
+      const reply = await askTutor(
+        {
+          question: trimmed,
+          lectureId: scopeId === "all" ? undefined : scopeId,
+        },
+        controller.signal
+      );
+
       const aiMsg: TutorMessage = {
         id: `a-${chatSession}-${nextOrdinal + 1}`,
         role: "assistant",
-        content: reply.content,
+        content: reply.answer,
         timestamp: "Just now",
         citations: reply.citations,
       };
       setMessages((prev) => [...prev, aiMsg]);
+    } catch (err) {
+      if (controller.signal.aborted) {
+        return;
+      }
+      const normalized = extractApiErrorMessage(err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `err-${chatSession}-${nextOrdinal + 1}`,
+          role: "assistant",
+          content: `Could not reach tutor endpoint: ${normalized.message}`,
+          timestamp: "Just now",
+        },
+      ]);
+    } finally {
       setIsResponding(false);
-    }, 650);
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    handleSendMessage(input);
+    void handleSendMessage(input);
   }
 
   function handleTextareaKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      handleSendMessage(input);
+      void handleSendMessage(input);
     }
   }
 
@@ -223,7 +200,7 @@ export default function TutorWorkspace({
                   variant={scopeId === lecture.id ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setScopeId(lecture.id)}
-                  className="h-auto w-full justify-start py-2 text-left rounded-lg"
+                  className="h-auto w-full justify-start rounded-lg py-2 text-left"
                 >
                   <BookOpen size={15} className="shrink-0" />
                   <span className="truncate">{lecture.title}</span>
@@ -241,7 +218,7 @@ export default function TutorWorkspace({
                   <button
                     key={prompt}
                     type="button"
-                    onClick={() => handleSendMessage(prompt)}
+                    onClick={() => void handleSendMessage(prompt)}
                     className="w-full rounded-xl border border-border bg-muted/30 p-2.5 text-left text-xs leading-5 text-foreground transition hover:border-primary/40 hover:bg-muted/60"
                   >
                     {prompt}
@@ -265,8 +242,8 @@ export default function TutorWorkspace({
                     <AvatarFallback
                       className={
                         isUser
-                          ? "bg-primary text-primary-foreground text-xs font-semibold"
-                          : "bg-primary/10 text-primary text-xs font-semibold"
+                          ? "bg-primary text-xs font-semibold text-primary-foreground"
+                          : "bg-primary/10 text-xs font-semibold text-primary"
                       }
                     >
                       {isUser ? "AD" : "AI"}
@@ -304,7 +281,7 @@ export default function TutorWorkspace({
             {isResponding && (
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
                 <Avatar className="shrink-0">
-                  <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                  <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
                     AI
                   </AvatarFallback>
                 </Avatar>
@@ -327,7 +304,7 @@ export default function TutorWorkspace({
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleTextareaKeyDown}
               placeholder="Ask a question about your lectures (Enter to send, Shift+Enter for new line)..."
-              className="min-h-11 max-h-32 resize-none"
+              className="max-h-32 min-h-11 resize-none"
             />
             <Button
               type="submit"

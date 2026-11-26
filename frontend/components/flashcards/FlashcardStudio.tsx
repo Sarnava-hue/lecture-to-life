@@ -29,6 +29,10 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { flashcardsData, lecturesData } from "@/lib/mock-data";
+import {
+  createFlashcard,
+  reviewFlashcard,
+} from "@/lib/services/study-service";
 import type { Flashcard, FlashcardMastery } from "@/types/study";
 
 type MasteryFilter = "all" | FlashcardMastery;
@@ -121,6 +125,20 @@ export default function FlashcardStudio({
         return;
       }
 
+      void reviewFlashcard({
+        flashcardId: currentCard.id,
+        rating:
+          nextReviewLabel === "In 10 min"
+            ? "again"
+            : nextReviewLabel === "In 1 day"
+              ? "hard"
+              : nextReviewLabel === "In 4 days"
+                ? "good"
+                : "easy",
+        nextMastery,
+        nextReviewLabel,
+      });
+
       setCards((prev) =>
         prev.map((item) =>
           item.id === currentCard.id
@@ -183,24 +201,18 @@ export default function FlashcardStudio({
     setSessionDone(false);
   }
 
-  function handleAddCard(event: FormEvent<HTMLFormElement>) {
+  async function handleAddCard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!newFront.trim() || !newBack.trim()) {
       return;
     }
 
-    const lecture = lecturesData.find((item) => item.id === newLectureId);
-    const created: Flashcard = {
-      id: `fc-custom-${Date.now()}`,
-      lectureId: lecture?.id ?? "1",
-      lectureTitle: lecture?.title ?? "Custom Deck",
-      subject: lecture?.subject ?? "General",
+    const created = await createFlashcard({
+      lectureId: newLectureId,
       front: newFront.trim(),
       back: newBack.trim(),
       hint: newHint.trim() || undefined,
-      mastery: "new",
-      nextReviewLabel: "New card",
-    };
+    });
 
     setCards((prev) => [created, ...prev]);
     setNewFront("");

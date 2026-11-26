@@ -14,6 +14,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { extractApiErrorMessage } from "@/lib/api-client";
+import { loginUser, registerUser } from "@/lib/services/study-service";
 
 export interface AuthFormProps {
   mode: "login" | "register";
@@ -31,7 +33,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
@@ -56,10 +58,25 @@ export default function AuthForm({ mode }: AuthFormProps) {
     }
 
     setSubmitting(true);
-    // Temporary preview transition until backend /api/v1/auth endpoints are connected.
-    setTimeout(() => {
+    try {
+      if (isRegister) {
+        await registerUser({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+        });
+      } else {
+        await loginUser({
+          email: email.trim(),
+          password,
+        });
+      }
       router.push("/dashboard");
-    }, 500);
+    } catch (err) {
+      const normalized = extractApiErrorMessage(err);
+      setError(normalized.message);
+      setSubmitting(false);
+    }
   }
 
   return (
