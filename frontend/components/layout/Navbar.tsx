@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -37,7 +45,22 @@ import {
 import { Input } from "@/components/ui/input";
 import { recentLectures } from "@/lib/mock-lectures";
 
-const initialNotifications = [
+interface NotificationItem {
+  id: string;
+  title: string;
+  detail: string;
+  href: string;
+  unread: boolean;
+}
+
+interface SearchResultItem {
+  label: string;
+  sublabel: string;
+  href: string;
+  category: string;
+}
+
+const initialNotifications: NotificationItem[] = [
   {
     id: "n1",
     title: "Flashcards ready",
@@ -69,7 +92,17 @@ const quickJumpLinks = [
   { label: "View learning progress", href: "/progress", category: "Analytics" },
 ];
 
-function SearchResultsList({ results, emptyMessage, keyPrefix, onSelect }) {
+function SearchResultsList({
+  results,
+  emptyMessage,
+  keyPrefix,
+  onSelect,
+}: {
+  results: SearchResultItem[];
+  emptyMessage: string;
+  keyPrefix: string;
+  onSelect: (href: string) => void;
+}) {
   if (results.length === 0) {
     return (
       <p className="px-3 py-4 text-center text-sm text-muted-foreground">
@@ -106,7 +139,7 @@ function SearchResultsList({ results, emptyMessage, keyPrefix, onSelect }) {
   );
 }
 
-function subscribeThemeChange(callback) {
+function subscribeThemeChange(callback: () => void): () => void {
   window.addEventListener("theme-change", callback);
   window.addEventListener("storage", callback);
   return () => {
@@ -115,23 +148,28 @@ function subscribeThemeChange(callback) {
   };
 }
 
-function getThemeSnapshot() {
+function getThemeSnapshot(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
-function getThemeServerSnapshot() {
+function getThemeServerSnapshot(): boolean {
   return false;
 }
 
-export default function Navbar({ onOpenMobileNav }) {
+export interface NavbarProps {
+  onOpenMobileNav?: () => void;
+}
+
+export default function Navbar({ onOpenMobileNav }: NavbarProps) {
   const router = useRouter();
-  const searchContainerRef = useRef(null);
-  const desktopInputRef = useRef(null);
+  const searchContainerRef = useRef<HTMLDivElement | null>(null);
+  const desktopInputRef = useRef<HTMLInputElement | null>(null);
 
   const [query, setQuery] = useState("");
   const [searchDropdownOpen, setSearchDropdownOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [notifications, setNotifications] =
+    useState<NotificationItem[]>(initialNotifications);
   const isDark = useSyncExternalStore(
     subscribeThemeChange,
     getThemeSnapshot,
@@ -139,7 +177,7 @@ export default function Navbar({ onOpenMobileNav }) {
   );
 
   useEffect(() => {
-    function handleKeyDown(event) {
+    function handleKeyDown(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         if (window.innerWidth < 768) {
@@ -153,9 +191,10 @@ export default function Navbar({ onOpenMobileNav }) {
       }
     }
 
-    function handleClickOutside(event) {
+    function handleClickOutside(event: MouseEvent) {
       if (
         searchContainerRef.current &&
+        event.target instanceof Node &&
         !searchContainerRef.current.contains(event.target)
       ) {
         setSearchDropdownOpen(false);
@@ -170,10 +209,10 @@ export default function Navbar({ onOpenMobileNav }) {
     };
   }, []);
 
-  const searchResults = useMemo(() => {
+  const searchResults = useMemo<SearchResultItem[]>(() => {
     const normalized = query.trim().toLowerCase();
 
-    const matchedLectures = recentLectures
+    const matchedLectures: SearchResultItem[] = recentLectures
       .filter(
         (lecture) =>
           !normalized ||
@@ -187,7 +226,7 @@ export default function Navbar({ onOpenMobileNav }) {
         category: "Lecture",
       }));
 
-    const matchedQuickLinks = quickJumpLinks
+    const matchedQuickLinks: SearchResultItem[] = quickJumpLinks
       .filter(
         (item) =>
           !normalized ||
@@ -221,18 +260,22 @@ export default function Navbar({ onOpenMobileNav }) {
     setNotifications((prev) => prev.map((item) => ({ ...item, unread: false })));
   }
 
-  function navigateToResult(href) {
+  function navigateToResult(href: string) {
     setSearchDropdownOpen(false);
     setMobileSearchOpen(false);
     setQuery("");
     router.push(href);
   }
 
-  function handleSearchSubmit(event) {
+  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (searchResults.length > 0) {
       navigateToResult(searchResults[0].href);
     }
+  }
+
+  function handleQueryChange(event: ChangeEvent<HTMLInputElement>) {
+    setQuery(event.target.value);
   }
 
   return (
@@ -269,7 +312,7 @@ export default function Navbar({ onOpenMobileNav }) {
             value={query}
             onFocus={() => setSearchDropdownOpen(true)}
             onChange={(event) => {
-              setQuery(event.target.value);
+              handleQueryChange(event);
               setSearchDropdownOpen(true);
             }}
             placeholder="Search lectures or jump to..."
@@ -442,7 +485,7 @@ export default function Navbar({ onOpenMobileNav }) {
               type="search"
               autoFocus
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={handleQueryChange}
               placeholder="Search lectures or actions..."
             />
 

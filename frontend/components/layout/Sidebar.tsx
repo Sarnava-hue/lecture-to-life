@@ -12,10 +12,17 @@ import {
   Settings,
   GraduationCap,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const navigation = [
+interface NavItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+const navigation: NavItem[] = [
   {
     name: "Dashboard",
     href: "/dashboard",
@@ -48,13 +55,14 @@ const navigation = [
   },
 ];
 
-/**
- * @param {{ onClose?: () => void }} props
- */
-export default function Sidebar({ onClose }) {
+export interface SidebarProps {
+  onClose?: () => void;
+}
+
+export default function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname();
 
-  function isRouteActive(href) {
+  function isRouteActive(href: string): boolean {
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 

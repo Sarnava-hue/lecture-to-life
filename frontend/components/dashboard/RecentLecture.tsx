@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { BookOpen, Clock3, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import type { LecturePreview } from "@/lib/mock-lectures";
+
+export type RecentLectureProps = LecturePreview;
 
 export default function RecentLecture({
   id,
   title,
   subject,
   duration,
-}) {
+}: RecentLectureProps) {
   return (
     <Link
       href={`/lectures/${id}`}

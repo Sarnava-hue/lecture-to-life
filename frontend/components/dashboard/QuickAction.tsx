@@ -1,13 +1,20 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, type LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+
+export interface QuickActionProps {
+  href: string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+}
 
 export default function QuickAction({
   href,
   title,
   description,
   icon: Icon,
-}) {
+}: QuickActionProps) {
   return (
     <Link href={href} className="group block rounded-2xl outline-none">
       <Card className="rounded-2xl py-4 shadow-sm transition group-hover:-translate-y-0.5 group-hover:ring-primary/40 group-hover:shadow-md">

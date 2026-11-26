@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type KeyboardEvent,
+} from "react";
 import {
   Upload,
   FileText,
@@ -11,6 +18,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+
+type UploadStatus = "idle" | "uploading" | "processing" | "success" | "error";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
@@ -23,12 +32,12 @@ const ALLOWED_TYPES = [
 const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".txt"];
 
 export default function LectureUploader() {
-  const inputRef = useRef(null);
-  const timersRef = useRef([]);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const [file, setFile] = useState(null);
+  const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [status, setStatus] = useState("idle");
+  const [status, setStatus] = useState<UploadStatus>("idle");
   const [error, setError] = useState("");
 
   function clearTimers() {
@@ -40,7 +49,7 @@ export default function LectureUploader() {
     return () => clearTimers();
   }, []);
 
-  function isSupportedFile(selectedFile) {
+  function isSupportedFile(selectedFile: File): boolean {
     if (selectedFile.type && ALLOWED_TYPES.includes(selectedFile.type)) {
       return true;
     }
@@ -49,7 +58,7 @@ export default function LectureUploader() {
     return ALLOWED_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
   }
 
-  function validateFile(selectedFile) {
+  function validateFile(selectedFile: File | null): string | null {
     if (!selectedFile) {
       return "Please select a file.";
     }
@@ -65,7 +74,7 @@ export default function LectureUploader() {
     return null;
   }
 
-  function handleFile(selectedFile) {
+  function handleFile(selectedFile: File) {
     clearTimers();
     setError("");
 
@@ -82,7 +91,7 @@ export default function LectureUploader() {
     setStatus("idle");
   }
 
-  function handleInputChange(event) {
+  function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
     const selectedFile = event.target.files?.[0];
 
     if (selectedFile) {
@@ -90,7 +99,7 @@ export default function LectureUploader() {
     }
   }
 
-  function handleDrop(event) {
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setIsDragging(false);
 
@@ -101,7 +110,7 @@ export default function LectureUploader() {
     }
   }
 
-  function handleDropzoneKeyDown(event) {
+  function handleDropzoneKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       inputRef.current?.click();

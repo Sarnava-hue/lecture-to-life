@@ -1,23 +1,22 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, type LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
-/**
- * @param {{
- *   title: string;
- *   value: string;
- *   description: string;
- *   icon: import("lucide-react").LucideIcon;
- *   href?: string;
- * }} props
- */
+export interface StatCardProps {
+  title: string;
+  value: string;
+  description: string;
+  icon: LucideIcon;
+  href?: string;
+}
+
 export default function StatCard({
   title,
   value,
   description,
   icon: Icon,
   href,
-}) {
+}: StatCardProps) {
   const cardBody = (
     <Card
       className={`rounded-2xl py-5 shadow-sm transition ${
