@@ -1,13 +1,10 @@
-export default function FlashcardsPage() {
-  return (
-    <div>
-      <h1 className="text-3xl font-bold text-foreground">
-        Flashcards
-      </h1>
+import FlashcardStudio from "@/components/flashcards/FlashcardStudio";
 
-      <p className="mt-2 text-muted-foreground">
-        Review your generated flashcards.
-      </p>
-    </div>
-  );
+export default async function FlashcardsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ lectureId?: string }>;
+}) {
+  const { lectureId } = await searchParams;
+  return <FlashcardStudio initialLectureId={lectureId} />;
 }

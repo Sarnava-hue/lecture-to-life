@@ -15,6 +15,7 @@ import {
   Bell,
   BookOpen,
   Check,
+  LogIn,
   Menu,
   Moon,
   Search,
@@ -465,6 +466,15 @@ export default function Navbar({ onOpenMobileNav }: NavbarProps) {
               <DropdownMenuItem onClick={() => router.push("/settings")}>
                 <Settings size={15} />
                 Settings
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuGroup>
+              <DropdownMenuItem onClick={() => router.push("/login")}>
+                <LogIn size={15} />
+                Sign In / Switch Account
               </DropdownMenuItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>

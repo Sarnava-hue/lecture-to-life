@@ -8,34 +8,79 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from "react";
+import Link from "next/link";
 import {
   Upload,
   FileText,
+  FileAudio,
   X,
   CheckCircle2,
   AlertCircle,
   Loader2,
+  ArrowRight,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 
 type UploadStatus = "idle" | "uploading" | "processing" | "success" | "error";
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024;
+type GenerationTarget = "summary" | "flashcards" | "quiz" | "conceptMap";
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024;
 
 const ALLOWED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/plain",
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/mp4",
+  "audio/x-m4a",
+  "video/mp4",
+  "video/webm",
 ];
 
-const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".txt"];
+const ALLOWED_EXTENSIONS = [
+  ".pdf",
+  ".docx",
+  ".txt",
+  ".mp3",
+  ".wav",
+  ".m4a",
+  ".mp4",
+  ".webm",
+];
+
+const GENERATION_OPTIONS: { id: GenerationTarget; label: string }[] = [
+  { id: "summary", label: "AI Summary" },
+  { id: "flashcards", label: "Flashcards" },
+  { id: "quiz", label: "Practice Quiz" },
+  { id: "conceptMap", label: "Concept Map" },
+];
+
+function stripExtension(filename: string): string {
+  return filename.replace(/\.[^/.]+$/, "").replace(/[_-]+/g, " ").trim();
+}
 
 export default function LectureUploader() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const [file, setFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
+  const [selectedTargets, setSelectedTargets] = useState<GenerationTarget[]>([
+    "summary",
+    "flashcards",
+    "quiz",
+    "conceptMap",
+  ]);
+  const [progress, setProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [status, setStatus] = useState<UploadStatus>("idle");
   const [error, setError] = useState("");
@@ -64,11 +109,11 @@ export default function LectureUploader() {
     }
 
     if (!isSupportedFile(selectedFile)) {
-      return "Please upload a PDF, DOCX, or TXT file.";
+      return "Please upload a PDF, DOCX, TXT, MP3, WAV, M4A, MP4, or WEBM file.";
     }
 
     if (selectedFile.size > MAX_FILE_SIZE) {
-      return "The file must be smaller than 50 MB.";
+      return "The file must be smaller than 100 MB.";
     }
 
     return null;
@@ -83,12 +128,15 @@ export default function LectureUploader() {
     if (validationError) {
       setFile(null);
       setStatus("idle");
+      setProgress(0);
       setError(validationError);
       return;
     }
 
     setFile(selectedFile);
+    setTitle((prev) => prev || stripExtension(selectedFile.name));
     setStatus("idle");
+    setProgress(0);
   }
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
@@ -117,10 +165,21 @@ export default function LectureUploader() {
     }
   }
 
+  function toggleTarget(target: GenerationTarget) {
+    setSelectedTargets((prev) =>
+      prev.includes(target)
+        ? prev.filter((item) => item !== target)
+        : [...prev, target]
+    );
+  }
+
   function removeFile() {
     clearTimers();
     setFile(null);
+    setTitle("");
+    setSubject("");
     setStatus("idle");
+    setProgress(0);
     setError("");
 
     if (inputRef.current) {
@@ -134,22 +193,44 @@ export default function LectureUploader() {
       return;
     }
 
+    if (!title.trim()) {
+      setError("Please enter a lecture title before processing.");
+      return;
+    }
+
+    if (selectedTargets.length === 0) {
+      setError("Select at least one resource type to generate.");
+      return;
+    }
+
     clearTimers();
     setError("");
     setStatus("uploading");
+    setProgress(25);
 
     // Temporary mock processing.
     // Later this will call Member 1's backend API.
+    const midUploadTimer = setTimeout(() => {
+      setProgress(55);
+    }, 650);
+
     const processingTimer = setTimeout(() => {
       setStatus("processing");
+      setProgress(82);
     }, 1500);
 
     const successTimer = setTimeout(() => {
+      setProgress(100);
       setStatus("success");
-    }, 4000);
+    }, 3600);
 
-    timersRef.current = [processingTimer, successTimer];
+    timersRef.current = [midUploadTimer, processingTimer, successTimer];
   }
+
+  const isAudioOrVideo =
+    file?.type.startsWith("audio/") ||
+    file?.type.startsWith("video/") ||
+    /\.(mp3|wav|m4a|mp4|webm)$/i.test(file?.name ?? "");
 
   return (
     <div className="space-y-5">
@@ -185,7 +266,7 @@ export default function LectureUploader() {
           </p>
 
           <p className="mt-4 text-xs text-muted-foreground">
-            PDF, DOCX, or TXT · Maximum 50 MB
+            Documents (PDF, DOCX, TXT) or Recordings (MP3, WAV, M4A, MP4) · Max 100 MB
           </p>
         </div>
       )}
@@ -193,7 +274,7 @@ export default function LectureUploader() {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.docx,.txt"
+        accept=".pdf,.docx,.txt,.mp3,.wav,.m4a,.mp4,.webm"
         onChange={handleInputChange}
         className="hidden"
       />
@@ -211,10 +292,10 @@ export default function LectureUploader() {
 
       {file && (
         <Card aria-live="polite" className="rounded-2xl py-5 shadow-sm">
-          <CardContent className="px-5">
+          <CardContent className="space-y-5 px-5">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <FileText size={22} />
+                {isAudioOrVideo ? <FileAudio size={22} /> : <FileText size={22} />}
               </div>
 
               <div className="min-w-0 flex-1">
@@ -241,38 +322,108 @@ export default function LectureUploader() {
             </div>
 
             {status === "idle" && (
-              <Button
-                type="button"
-                size="lg"
-                onClick={handleUpload}
-                className="mt-5 h-11 w-full rounded-xl text-sm font-semibold"
-              >
-                <Upload size={18} />
-                Start Processing
-              </Button>
-            )}
+              <div className="space-y-4 border-t border-border pt-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="lecture-title"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      Lecture Title
+                    </label>
+                    <Input
+                      id="lecture-title"
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                      placeholder="e.g. Neural Networks Basics"
+                    />
+                  </div>
 
-            {status === "uploading" && (
-              <div className="mt-5 flex items-center gap-3 rounded-xl bg-primary/10 p-4 text-sm text-primary">
-                <Loader2 size={18} className="animate-spin" />
-                Uploading your lecture...
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="lecture-subject"
+                      className="text-xs font-medium text-foreground"
+                    >
+                      Subject / Course
+                    </label>
+                    <Input
+                      id="lecture-subject"
+                      value={subject}
+                      onChange={(event) => setSubject(event.target.value)}
+                      placeholder="e.g. Artificial Intelligence"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="block text-xs font-medium text-foreground">
+                    Generate study materials
+                  </span>
+
+                  <div className="flex flex-wrap gap-2">
+                    {GENERATION_OPTIONS.map((option) => {
+                      const active = selectedTargets.includes(option.id);
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => toggleTarget(option.id)}
+                          className="rounded-full outline-none"
+                        >
+                          <Badge
+                            variant={active ? "default" : "outline"}
+                            className="cursor-pointer px-3 py-1 text-xs"
+                          >
+                            {option.label}
+                          </Badge>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={handleUpload}
+                  className="h-11 w-full rounded-xl text-sm font-semibold"
+                >
+                  <Upload size={18} />
+                  Start Processing
+                </Button>
               </div>
             )}
 
-            {status === "processing" && (
-              <div className="mt-5 flex items-center gap-3 rounded-xl bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-300">
-                <Loader2 size={18} className="animate-spin" />
-                <div>
-                  <p className="font-medium">Processing your lecture...</p>
-                  <p className="mt-1 text-xs opacity-90">
-                    Generating your learning resources.
-                  </p>
+            {(status === "uploading" || status === "processing") && (
+              <div className="space-y-3">
+                <Progress value={progress} className="w-full" />
+
+                <div
+                  className={`flex items-center gap-3 rounded-xl p-4 text-sm ${
+                    status === "uploading"
+                      ? "bg-primary/10 text-primary"
+                      : "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                  }`}
+                >
+                  <Loader2 size={18} className="animate-spin shrink-0" />
+                  <div>
+                    <p className="font-medium">
+                      {status === "uploading"
+                        ? `Uploading "${title || file.name}"...`
+                        : "Processing your lecture..."}
+                    </p>
+                    <p className="mt-0.5 text-xs opacity-90">
+                      {status === "uploading"
+                        ? `${progress}% uploaded`
+                        : `Generating ${selectedTargets.length} study resource(s).`}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
 
             {status === "error" && (
-              <div className="mt-5 space-y-3">
+              <div className="space-y-3">
                 <div className="flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
                   <AlertCircle size={18} className="mt-0.5 shrink-0" />
                   <p>Upload failed. Please try again.</p>
@@ -291,29 +442,40 @@ export default function LectureUploader() {
             )}
 
             {status === "success" && (
-              <div className="mt-5 space-y-4">
+              <div className="space-y-4">
                 <div className="flex items-start gap-3 rounded-xl bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
                   <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
 
                   <div>
                     <p className="font-medium">
-                      Lecture processed successfully!
+                      &ldquo;{title || file.name}&rdquo; processed successfully!
                     </p>
 
                     <p className="mt-1 text-xs opacity-90">
-                      Your study resources are ready.
+                      Preview mode active: explore a complete lecture session or upload another file.
                     </p>
                   </div>
                 </div>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={removeFile}
-                  className="h-10 w-full rounded-xl text-sm font-medium"
-                >
-                  Upload another lecture
-                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    render={<Link href="/lectures/1" />}
+                    nativeButton={false}
+                    className="h-10 flex-1 rounded-xl text-sm font-semibold"
+                  >
+                    Open sample study session
+                    <ArrowRight size={16} />
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={removeFile}
+                    className="h-10 flex-1 rounded-xl text-sm font-medium"
+                  >
+                    Upload another lecture
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

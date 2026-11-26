@@ -1,13 +1,10 @@
-export default function TutorPage() {
-  return (
-    <div>
-      <h1 className="text-3xl font-bold text-foreground">
-        AI Tutor
-      </h1>
+import TutorWorkspace from "@/components/tutor/TutorWorkspace";
 
-      <p className="mt-2 text-muted-foreground">
-        Ask questions about your learning materials.
-      </p>
-    </div>
-  );
+export default async function TutorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ lectureId?: string }>;
+}) {
+  const { lectureId } = await searchParams;
+  return <TutorWorkspace initialLectureId={lectureId} />;
 }
