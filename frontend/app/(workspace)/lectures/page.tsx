@@ -1,25 +1,28 @@
 import LectureUploader from "@/components/lectures/LectureUploader";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function LecturesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-slate-900">
-          My Lectures
-        </h1>
+        <h1 className="text-3xl font-bold text-foreground">My Lectures</h1>
 
-        <p className="mt-2 text-slate-600">
+        <p className="mt-2 text-muted-foreground">
           Upload and manage your learning materials.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-xl font-semibold text-slate-900">
-          Upload New Lecture
-        </h2>
+      <Card className="rounded-2xl py-6 shadow-sm">
+        <CardHeader className="px-6">
+          <CardTitle className="text-xl font-semibold">
+            Upload New Lecture
+          </CardTitle>
+        </CardHeader>
 
-        <LectureUploader />
-      </div>
+        <CardContent className="px-6">
+          <LectureUploader />
+        </CardContent>
+      </Card>
     </div>
   );
 }

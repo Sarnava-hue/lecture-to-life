@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Upload, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function WelcomeSection() {
   return (
-    <section className="overflow-hidden rounded-2xl bg-indigo-600 p-6 text-white shadow-sm md:p-8">
+    <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 to-indigo-700 p-6 text-white shadow-sm dark:from-indigo-600 dark:to-indigo-800 md:p-8">
       <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
         <div className="max-w-2xl">
-          <div className="flex items-center gap-2 text-indigo-200">
+          <div className="flex items-center gap-2 text-indigo-100">
             <Sparkles size={17} />
 
             <span className="text-sm font-medium">
@@ -24,13 +25,15 @@ export default function WelcomeSection() {
           </p>
         </div>
 
-        <Link
-          href="/lectures/upload"
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-indigo-700 shadow-sm transition hover:bg-indigo-50"
+        <Button
+          render={<Link href="/lectures/upload" />}
+          nativeButton={false}
+          size="lg"
+          className="h-11 shrink-0 rounded-xl bg-white px-5 text-sm font-semibold text-indigo-700 shadow-sm hover:bg-indigo-50"
         >
           <Upload size={18} />
           Upload Lecture
-        </Link>
+        </Button>
       </div>
     </section>
   );

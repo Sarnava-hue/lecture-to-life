@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function QuickAction({
   href,
@@ -8,28 +9,27 @@ export default function QuickAction({
   icon: Icon,
 }) {
   return (
-    <Link
-      href={href}
-      className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md"
-    >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-        <Icon size={21} />
-      </div>
+    <Link href={href} className="group block rounded-2xl outline-none">
+      <Card className="rounded-2xl py-4 shadow-sm transition group-hover:-translate-y-0.5 group-hover:ring-primary/40 group-hover:shadow-md">
+        <CardContent className="flex items-center gap-4 px-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Icon size={21} />
+          </div>
 
-      <div className="min-w-0 flex-1">
-        <h3 className="font-semibold text-slate-900">
-          {title}
-        </h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-foreground">{title}</h3>
 
-        <p className="mt-1 text-sm text-slate-500">
-          {description}
-        </p>
-      </div>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {description}
+            </p>
+          </div>
 
-      <ArrowRight
-        size={18}
-        className="text-slate-400 transition group-hover:translate-x-1 group-hover:text-indigo-600"
-      />
+          <ArrowRight
+            size={18}
+            className="shrink-0 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary"
+          />
+        </CardContent>
+      </Card>
     </Link>
   );
 }

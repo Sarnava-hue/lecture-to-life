@@ -1,11 +1,11 @@
 export default function SettingsPage() {
   return (
     <div>
-      <h1 className="text-3xl font-bold text-slate-900">
+      <h1 className="text-3xl font-bold text-foreground">
         Settings
       </h1>
 
-      <p className="mt-2 text-slate-600">
+      <p className="mt-2 text-muted-foreground">
         Manage your preferences.
       </p>
     </div>

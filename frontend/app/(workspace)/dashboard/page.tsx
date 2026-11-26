@@ -11,6 +11,13 @@ import WelcomeSection from "@/components/dashboard/WelcomeSection";
 import StatCard from "@/components/dashboard/StatCard";
 import QuickAction from "@/components/dashboard/QuickAction";
 import RecentLecture from "@/components/dashboard/RecentLecture";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { recentLectures } from "@/lib/mock-lectures";
 
 export default function DashboardPage() {
@@ -20,11 +27,11 @@ export default function DashboardPage() {
 
       <section>
         <div className="mb-4">
-          <h2 className="text-lg font-semibold text-slate-900">
+          <h2 className="text-lg font-semibold text-foreground">
             Your learning overview
           </h2>
 
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             A quick look at your current learning activity.
           </p>
         </div>
@@ -35,6 +42,7 @@ export default function DashboardPage() {
             value="12"
             description="3 added this week"
             icon={BookOpen}
+            href="/lectures"
           />
 
           <StatCard
@@ -42,6 +50,7 @@ export default function DashboardPage() {
             value="186"
             description="24 reviewed this week"
             icon={Layers}
+            href="/flashcards"
           />
 
           <StatCard
@@ -49,6 +58,7 @@ export default function DashboardPage() {
             value="8"
             description="Average score: 84%"
             icon={ClipboardCheck}
+            href="/quizzes"
           />
 
           <StatCard
@@ -56,53 +66,53 @@ export default function DashboardPage() {
             value="7 days"
             description="Keep the streak going"
             icon={Flame}
+            href="/progress"
           />
         </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
-          <div className="flex items-center justify-between">
+        <Card className="rounded-2xl py-5 shadow-sm lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between px-5">
             <div>
-              <h2 className="font-semibold text-slate-900">
+              <CardTitle className="text-base font-semibold">
                 Recent lectures
-              </h2>
+              </CardTitle>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <CardDescription className="mt-1">
                 Continue where you left off.
-              </p>
+              </CardDescription>
             </div>
 
             <Link
               href="/lectures"
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+              className="text-sm font-medium text-primary hover:underline"
             >
               View all
             </Link>
-          </div>
+          </CardHeader>
 
-          <div className="mt-4 divide-y divide-slate-100">
-            {recentLectures.map((lecture) => (
-              <RecentLecture
-                key={lecture.id}
-                {...lecture}
-              />
-            ))}
-          </div>
-        </div>
+          <CardContent className="px-5">
+            <div className="divide-y divide-border">
+              {recentLectures.map((lecture) => (
+                <RecentLecture key={lecture.id} {...lecture} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div>
-            <h2 className="font-semibold text-slate-900">
+        <Card className="rounded-2xl py-5 shadow-sm">
+          <CardHeader className="px-5">
+            <CardTitle className="text-base font-semibold">
               Quick actions
-            </h2>
+            </CardTitle>
 
-            <p className="mt-1 text-sm text-slate-500">
+            <CardDescription className="mt-1">
               Jump straight into learning.
-            </p>
-          </div>
+            </CardDescription>
+          </CardHeader>
 
-          <div className="mt-4 space-y-3">
+          <CardContent className="space-y-3 px-5">
             <QuickAction
               href="/lectures/upload"
               title="Upload lecture"
@@ -123,8 +133,8 @@ export default function DashboardPage() {
               description="Test your understanding"
               icon={ClipboardCheck}
             />
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </section>
     </div>
   );

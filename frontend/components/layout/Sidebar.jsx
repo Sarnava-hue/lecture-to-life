@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -11,7 +10,10 @@ import {
   MessageCircle,
   TrendingUp,
   Settings,
+  GraduationCap,
+  X,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const navigation = [
   {
@@ -46,52 +48,91 @@ const navigation = [
   },
 ];
 
-export default function Sidebar() {
+/**
+ * @param {{ onClose?: () => void }} props
+ */
+export default function Sidebar({ onClose }) {
   const pathname = usePathname();
 
+  function isRouteActive(href) {
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
+
   return (
-    <aside className="flex h-full w-64 flex-col border-r border-slate-200 bg-white">
-      <div className="border-b border-slate-200 p-6">
-        <h2 className="text-xl font-bold text-indigo-600">
-          Lecture to Life
-        </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Your AI learning workspace
-        </p>
+    <aside
+      aria-label="Primary navigation"
+      className="flex h-full w-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+    >
+      <div className="flex items-center justify-between border-b border-sidebar-border px-5 py-4">
+        <Link
+          href="/dashboard"
+          onClick={onClose}
+          className="flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs">
+            <GraduationCap size={20} />
+          </div>
+
+          <div>
+            <span className="block text-base font-bold tracking-tight text-sidebar-foreground">
+              Lecture to Life
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              AI learning workspace
+            </span>
+          </div>
+        </Link>
+
+        {onClose && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={onClose}
+            aria-label="Close navigation menu"
+            className="md:hidden"
+          >
+            <X size={18} />
+          </Button>
+        )}
       </div>
 
-      <nav className="flex-1 space-y-2 p-4">
+      <nav aria-label="Workspace routes" className="flex-1 space-y-1.5 overflow-y-auto p-4">
         {navigation.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          const isActive = isRouteActive(item.href);
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
+              onClick={onClose}
+              aria-current={isActive ? "page" : undefined}
+              className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
                 isActive
-                  ? "bg-indigo-50 text-indigo-600"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-indigo-600"
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
-              <Icon size={20} />
+              <Icon size={19} />
               {item.name}
             </Link>
           );
         })}
       </nav>
 
-      <div className="border-t border-slate-200 p-4">
+      <div className="border-t border-sidebar-border p-4">
         <Link
           href="/settings"
-          className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition ${
-            pathname === "/settings"
-              ? "bg-indigo-50 text-indigo-600"
-              : "text-slate-600 hover:bg-slate-100 hover:text-indigo-600"
+          onClick={onClose}
+          aria-current={isRouteActive("/settings") ? "page" : undefined}
+          className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition ${
+            isRouteActive("/settings")
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
           }`}
         >
-          <Settings size={20} />
+          <Settings size={19} />
           Settings
         </Link>
       </div>
