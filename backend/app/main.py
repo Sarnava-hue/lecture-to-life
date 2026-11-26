@@ -1,7 +1,15 @@
-from fastapi import FastAPI
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.api.auth import router as auth_router
-
+from app.api.lectures import router as lectures_router
+from app.core.config import settings
+from app.db.dependencies import get_db
 
 app = FastAPI(
     title="Lecture-to-Life API",
@@ -9,8 +17,16 @@ app = FastAPI(
     version="0.1.0",
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth_router)
+app.include_router(lectures_router)
 
 
 @app.get("/")
@@ -22,7 +38,13 @@ def root():
 
 
 @app.get("/health")
-def health_check():
-    return {
-        "status": "healthy",
-    }
+def health_check(db: Annotated[Session, Depends(get_db)]):
+    """Verify API and database connectivity."""
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "unhealthy"},
+        )
+    return {"status": "healthy"}

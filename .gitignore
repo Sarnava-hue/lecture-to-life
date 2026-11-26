@@ -9,6 +9,9 @@ env/
 
 # Environment variables
 .env
+.env*
+!.env.example
+!.env.local.example
 
 # IDE
 .vscode/
@@ -18,16 +21,24 @@ env/
 .DS_Store
 Thumbs.db
 
-# Uploaded files
+# Uploaded and stored files
 uploads/*
 !uploads/.gitkeep
+backend/uploads/*
+backend/storage/
 
 # Python cache
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 
-# Node
+# Node / Frontend
 node_modules/
+.next/
+out/
+build/
+.vercel/
+*.tsbuildinfo
 
 # Logs
 *.log
