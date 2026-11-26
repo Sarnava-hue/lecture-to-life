@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Upload,
   FileText,
@@ -18,20 +18,41 @@ const ALLOWED_TYPES = [
   "text/plain",
 ];
 
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".txt"];
+
 export default function LectureUploader() {
   const inputRef = useRef(null);
+  const timersRef = useRef([]);
 
   const [file, setFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
 
+  function clearTimers() {
+    timersRef.current.forEach((timerId) => clearTimeout(timerId));
+    timersRef.current = [];
+  }
+
+  useEffect(() => {
+    return () => clearTimers();
+  }, []);
+
+  function isSupportedFile(selectedFile) {
+    if (selectedFile.type && ALLOWED_TYPES.includes(selectedFile.type)) {
+      return true;
+    }
+
+    const lowerName = selectedFile.name?.toLowerCase() ?? "";
+    return ALLOWED_EXTENSIONS.some((ext) => lowerName.endsWith(ext));
+  }
+
   function validateFile(selectedFile) {
     if (!selectedFile) {
       return "Please select a file.";
     }
 
-    if (!ALLOWED_TYPES.includes(selectedFile.type)) {
+    if (!isSupportedFile(selectedFile)) {
       return "Please upload a PDF, DOCX, or TXT file.";
     }
 
@@ -43,12 +64,14 @@ export default function LectureUploader() {
   }
 
   function handleFile(selectedFile) {
+    clearTimers();
     setError("");
 
     const validationError = validateFile(selectedFile);
 
     if (validationError) {
       setFile(null);
+      setStatus("idle");
       setError(validationError);
       return;
     }
@@ -76,7 +99,15 @@ export default function LectureUploader() {
     }
   }
 
+  function handleDropzoneKeyDown(event) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      inputRef.current?.click();
+    }
+  }
+
   function removeFile() {
+    clearTimers();
     setFile(null);
     setStatus("idle");
     setError("");
@@ -92,33 +123,39 @@ export default function LectureUploader() {
       return;
     }
 
+    clearTimers();
     setError("");
     setStatus("uploading");
 
     // Temporary mock processing.
     // Later this will call Member 1's backend API.
-    setTimeout(() => {
+    const processingTimer = setTimeout(() => {
       setStatus("processing");
     }, 1500);
 
-    setTimeout(() => {
+    const successTimer = setTimeout(() => {
       setStatus("success");
     }, 4000);
+
+    timersRef.current = [processingTimer, successTimer];
   }
 
   return (
     <div className="space-y-5">
       {!file && (
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Upload lecture file"
           onClick={() => inputRef.current?.click()}
+          onKeyDown={handleDropzoneKeyDown}
           onDragOver={(event) => {
             event.preventDefault();
             setIsDragging(true);
           }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
-          className={`flex min-h-72 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 text-center transition ${
+          className={`flex min-h-72 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 text-center transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
             isDragging
               ? "border-indigo-500 bg-indigo-50"
               : "border-slate-300 bg-white hover:border-indigo-400 hover:bg-slate-50"
@@ -139,7 +176,7 @@ export default function LectureUploader() {
           <p className="mt-4 text-xs text-slate-400">
             PDF, DOCX, or TXT · Maximum 50 MB
           </p>
-        </button>
+        </div>
       )}
 
       <input
@@ -151,14 +188,21 @@ export default function LectureUploader() {
       />
 
       {error && (
-        <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div
+          role="alert"
+          aria-live="polite"
+          className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+        >
           <AlertCircle size={18} className="mt-0.5 shrink-0" />
           <p>{error}</p>
         </div>
       )}
 
       {file && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div
+          aria-live="polite"
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
               <FileText size={22} />
@@ -174,7 +218,7 @@ export default function LectureUploader() {
               </p>
             </div>
 
-            {status === "idle" && (
+            {(status === "idle" || status === "error") && (
               <button
                 type="button"
                 onClick={removeFile}
@@ -218,19 +262,47 @@ export default function LectureUploader() {
             </div>
           )}
 
-          {status === "success" && (
-            <div className="mt-5 flex items-start gap-3 rounded-xl bg-green-50 p-4 text-sm text-green-700">
-              <CheckCircle2 size={18} className="mt-0.5" />
-
-              <div>
-                <p className="font-medium">
-                  Lecture processed successfully!
-                </p>
-
-                <p className="mt-1 text-xs">
-                  Your study resources are ready.
-                </p>
+          {status === "error" && (
+            <div className="mt-5 space-y-3">
+              <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                <p>Upload failed. Please try again.</p>
               </div>
+
+              <button
+                type="button"
+                onClick={handleUpload}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                <Upload size={18} />
+                Retry Upload
+              </button>
+            </div>
+          )}
+
+          {status === "success" && (
+            <div className="mt-5 space-y-4">
+              <div className="flex items-start gap-3 rounded-xl bg-green-50 p-4 text-sm text-green-700">
+                <CheckCircle2 size={18} className="mt-0.5 shrink-0" />
+
+                <div>
+                  <p className="font-medium">
+                    Lecture processed successfully!
+                  </p>
+
+                  <p className="mt-1 text-xs">
+                    Your study resources are ready.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={removeFile}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Upload another lecture
+              </button>
             </div>
           )}
         </div>

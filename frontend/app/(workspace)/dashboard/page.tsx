@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   BookOpen,
   Layers,
@@ -10,27 +11,7 @@ import WelcomeSection from "@/components/dashboard/WelcomeSection";
 import StatCard from "@/components/dashboard/StatCard";
 import QuickAction from "@/components/dashboard/QuickAction";
 import RecentLecture from "@/components/dashboard/RecentLecture";
-
-const recentLectures = [
-  {
-    id: "1",
-    title: "Introduction to Machine Learning",
-    subject: "Artificial Intelligence",
-    duration: "42 min",
-  },
-  {
-    id: "2",
-    title: "Operating Systems — Processes",
-    subject: "Computer Science",
-    duration: "36 min",
-  },
-  {
-    id: "3",
-    title: "Database Normalization",
-    subject: "Database Systems",
-    duration: "28 min",
-  },
-];
+import { recentLectures } from "@/lib/mock-lectures";
 
 export default function DashboardPage() {
   return (
@@ -92,12 +73,12 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <a
+            <Link
               href="/lectures"
               className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
             >
               View all
-            </a>
+            </Link>
           </div>
 
           <div className="mt-4 divide-y divide-slate-100">

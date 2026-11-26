@@ -1,5 +1,4 @@
-
-import LectureUploader from "../../components/lectures/LectureUploader";
+import LectureUploader from "@/components/lectures/LectureUploader";
 
 export default function LecturesPage() {
   return (
