@@ -16,10 +16,27 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
-from app.models import Document, User  # noqa: E402
+from app.models import (  # noqa: E402
+    Document,
+    Flashcard,
+    LectureChunk,
+    Quiz,
+    QuizAttempt,
+    QuizQuestion,
+    StudyActivityLog,
+    TutorMessage,
+    User,
+)
 
 __all__ = [
     "Base",
     "User",
     "Document",
+    "LectureChunk",
+    "Flashcard",
+    "Quiz",
+    "QuizQuestion",
+    "QuizAttempt",
+    "TutorMessage",
+    "StudyActivityLog",
 ]

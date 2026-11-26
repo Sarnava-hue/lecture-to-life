@@ -15,7 +15,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -23,6 +23,8 @@ from app.core.dependencies import get_current_user
 from app.db.dependencies import get_db
 from app.db.session import SessionLocal
 from app.models.document import Document
+from app.models.flashcard import Flashcard
+from app.models.quiz import Quiz
 from app.models.user import User
 from app.schemas.document import (
     ALLOWED_GENERATION_TARGETS,
@@ -86,6 +88,26 @@ def _get_owned_lecture_or_404(
     return document
 
 
+def get_lecture_counts(
+    db: Session, document_ids: list[int]
+) -> tuple[dict[int, int], dict[int, int]]:
+    """Fetch flashcard and quiz counts for a batch of lecture IDs in two queries."""
+    if not document_ids:
+        return {}, {}
+
+    fc_rows = db.execute(
+        select(Flashcard.document_id, func.count(Flashcard.id))
+        .where(Flashcard.document_id.in_(document_ids))
+        .group_by(Flashcard.document_id)
+    ).all()
+    quiz_rows = db.execute(
+        select(Quiz.document_id, func.count(Quiz.id))
+        .where(Quiz.document_id.in_(document_ids))
+        .group_by(Quiz.document_id)
+    ).all()
+    return dict(fc_rows), dict(quiz_rows)
+
+
 @router.get("", response_model=list[LectureResponse])
 def list_lectures(
     current_user: Annotated[User, Depends(get_current_user)],
@@ -102,7 +124,17 @@ def list_lectures(
         .limit(limit)
     ).all()
 
-    return [document_to_lecture_response(doc) for doc in documents]
+    doc_ids = [doc.id for doc in documents]
+    fc_counts, quiz_counts = get_lecture_counts(db, doc_ids)
+
+    return [
+        document_to_lecture_response(
+            doc,
+            flashcard_count=fc_counts.get(doc.id, 0),
+            quiz_count=quiz_counts.get(doc.id, 0),
+        )
+        for doc in documents
+    ]
 
 
 @router.post(
@@ -120,7 +152,7 @@ async def upload_lecture(
     subject: str = Form(default="General"),
     targets: str = Form(default='["summary","flashcards","quiz","conceptMap"]'),
 ):
-    """Upload a lecture document or recording and start background processing."""
+    """Upload a lecture document or recording and start background AI processing."""
     spec = validate_upload_metadata(file)
     parsed_targets = _parse_targets(targets)
 
@@ -163,11 +195,13 @@ async def upload_lecture(
         raise
 
     session_factory = getattr(request.app.state, "session_factory", SessionLocal)
+    gemini_client = getattr(request.app.state, "gemini_client", None)
     background_tasks.add_task(
         process_lecture_background,
         document.id,
         session_factory,
         upload_dir,
+        gemini_client,
     )
 
     return UploadLectureResponse(
@@ -185,7 +219,12 @@ def get_lecture(
 ):
     """Fetch full details for a single lecture owned by the authenticated user."""
     document = _get_owned_lecture_or_404(lecture_id, current_user.id, db)
-    return document_to_lecture_response(document)
+    fc_counts, quiz_counts = get_lecture_counts(db, [document.id])
+    return document_to_lecture_response(
+        document,
+        flashcard_count=fc_counts.get(document.id, 0),
+        quiz_count=quiz_counts.get(document.id, 0),
+    )
 
 
 @router.get("/{lecture_id}/status", response_model=LectureStatusResponse)

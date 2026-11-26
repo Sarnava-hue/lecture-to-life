@@ -86,8 +86,8 @@ def test_upload_txt_lecture_and_poll_status(
     assert "keyTakeaways" in lecture
     assert "conceptNodes" in lecture
     assert "conceptEdges" in lecture
-    assert lecture["flashcardCount"] == 0
-    assert lecture["quizCount"] == 0
+    assert lecture["flashcardCount"] == 2
+    assert lecture["quizCount"] == 1
 
 
 def test_upload_pdf_lecture_extracts_pages(

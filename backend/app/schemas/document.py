@@ -84,7 +84,11 @@ def format_uploaded_at(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).isoformat()
 
 
-def document_to_lecture_response(document: Any) -> LectureResponse:
+def document_to_lecture_response(
+    document: Any,
+    flashcard_count: int = 0,
+    quiz_count: int = 0,
+) -> LectureResponse:
     """Map a Document ORM model into the frontend Lecture contract."""
     title = document.title or document.filename
     raw_status = document.status
@@ -121,6 +125,6 @@ def document_to_lecture_response(document: Any) -> LectureResponse:
             ConceptEdgeSchema(**edge)
             for edge in (document.concept_edges or [])
         ],
-        flashcardCount=0,
-        quizCount=0,
+        flashcardCount=flashcard_count,
+        quizCount=quiz_count,
     )

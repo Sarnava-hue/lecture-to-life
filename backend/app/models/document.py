@@ -148,3 +148,18 @@ class Document(Base):
         "User",
         back_populates="documents",
     )
+    chunks = relationship(
+        "LectureChunk",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
+    flashcards = relationship(
+        "Flashcard",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )
+    quizzes = relationship(
+        "Quiz",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )

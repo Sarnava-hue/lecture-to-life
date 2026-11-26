@@ -92,6 +92,8 @@ def client(
         delattr(app.state, "session_factory")
     if hasattr(app.state, "upload_dir"):
         delattr(app.state, "upload_dir")
+    if hasattr(app.state, "gemini_client"):
+        delattr(app.state, "gemini_client")
 
 
 @pytest.fixture()
