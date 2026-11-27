@@ -1,0 +1,16 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "detachhead.basedpyright",
+    "charliermarsh.ruff",
+    "tamasfe.even-better-toml",
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "vitest.explorer",
+    "cweijan.vscode-database-client2",
+    "ms-azuretools.vscode-docker",
+    "mikestead.dotenv",
+    "bierner.markdown-mermaid"
+  ]
+}

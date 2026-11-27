@@ -14,7 +14,8 @@ env/
 !.env.local.example
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 .idea/
 
 # OS files
