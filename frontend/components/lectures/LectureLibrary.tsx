@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -10,6 +10,7 @@ import {
   FileText,
   Layers,
   ClipboardCheck,
+  Loader2,
   Search,
   Trash2,
   Upload,
@@ -33,8 +34,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { extractApiErrorMessage, isMockModeEnabled } from "@/lib/api-client";
 import { lecturesData } from "@/lib/mock-data";
-import { deleteLecture } from "@/lib/services/study-service";
+import { deleteLecture, fetchLectures } from "@/lib/services/study-service";
 import type { Lecture, LectureStatus } from "@/types/study";
 
 const statusLabel: Record<LectureStatus, string> = {
@@ -43,11 +45,57 @@ const statusLabel: Record<LectureStatus, string> = {
   failed: "Failed",
 };
 
+function formatUploadedLabel(value: string): string {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return value;
+  }
+  return new Date(parsed).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function LectureLibrary() {
-  const [lectures, setLectures] = useState<Lecture[]>(lecturesData);
+  const mockMode = isMockModeEnabled();
+  const [lectures, setLectures] = useState<Lecture[]>(() =>
+    mockMode ? lecturesData : []
+  );
+  const [loading, setLoading] = useState(!mockMode);
+  const [loadError, setLoadError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("All");
   const [deleteTarget, setDeleteTarget] = useState<Lecture | null>(null);
+
+  useEffect(() => {
+    if (mockMode) {
+      return;
+    }
+
+    let cancelled = false;
+    void fetchLectures()
+      .then((data) => {
+        if (!cancelled) {
+          setLectures(data);
+          setLoadError("");
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(extractApiErrorMessage(err).message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mockMode]);
 
   const subjects = useMemo(() => {
     const unique = Array.from(new Set(lectures.map((item) => item.subject)));
@@ -72,10 +120,16 @@ export default function LectureLibrary() {
     if (!deleteTarget) {
       return;
     }
+    const previous = lectures;
     const targetId = deleteTarget.id;
     setLectures((prev) => prev.filter((item) => item.id !== targetId));
     setDeleteTarget(null);
-    await deleteLecture(targetId);
+    try {
+      await deleteLecture(targetId);
+    } catch (err) {
+      setLectures(previous);
+      setLoadError(extractApiErrorMessage(err).message);
+    }
   }
 
   return (
@@ -130,7 +184,23 @@ export default function LectureLibrary() {
         </div>
       </div>
 
-      {filteredLectures.length === 0 ? (
+      {loadError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {loadError}
+        </p>
+      )}
+
+      {loading ? (
+        <Card className="rounded-2xl py-12 text-center shadow-sm">
+          <CardContent className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 size={18} className="animate-spin text-primary" />
+            Loading your lectures...
+          </CardContent>
+        </Card>
+      ) : filteredLectures.length === 0 ? (
         <Card className="rounded-2xl py-12 text-center shadow-sm">
           <CardContent className="space-y-3 px-6">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -190,7 +260,7 @@ export default function LectureLibrary() {
                       <Clock3 size={13} />
                       {lecture.duration}
                     </span>
-                    <span>· {lecture.uploadedAt}</span>
+                    <span>· {formatUploadedLabel(lecture.uploadedAt)}</span>
                   </CardDescription>
                 </div>
               </CardHeader>
@@ -252,7 +322,7 @@ export default function LectureLibrary() {
           <DialogHeader>
             <DialogTitle>Remove lecture?</DialogTitle>
             <DialogDescription>
-              This removes &ldquo;{deleteTarget?.title}&rdquo; from your current workspace view.
+              This removes &ldquo;{deleteTarget?.title}&rdquo; from your workspace.
             </DialogDescription>
           </DialogHeader>
 

@@ -7,7 +7,9 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Clock3,
+  Loader2,
   RotateCcw,
+  Sparkles,
   XCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -21,8 +23,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { extractApiErrorMessage, isMockModeEnabled } from "@/lib/api-client";
 import { quizzesData } from "@/lib/mock-data";
-import { submitQuizAttempt } from "@/lib/services/study-service";
+import { fetchQuizzes, submitQuizAttempt } from "@/lib/services/study-service";
 import type { Quiz } from "@/types/study";
 
 export interface QuizStudioProps {
@@ -36,11 +39,20 @@ function formatDuration(seconds: number): string {
 }
 
 export default function QuizStudio({ initialLectureId }: QuizStudioProps) {
-  const initialQuiz = initialLectureId
-    ? quizzesData.find((q) => q.lectureId === initialLectureId) ?? null
-    : null;
+  const mockMode = isMockModeEnabled();
 
-  const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(initialQuiz);
+  const [quizzes, setQuizzes] = useState<Quiz[]>(() =>
+    mockMode ? quizzesData : []
+  );
+  const [loading, setLoading] = useState(!mockMode);
+  const [loadError, setLoadError] = useState("");
+
+  const [activeQuiz, setActiveQuiz] = useState<Quiz | null>(() => {
+    if (!mockMode || !initialLectureId) {
+      return null;
+    }
+    return quizzesData.find((q) => q.lectureId === initialLectureId) ?? null;
+  });
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [checked, setChecked] = useState(false);
@@ -48,6 +60,44 @@ export default function QuizStudio({ initialLectureId }: QuizStudioProps) {
   const [finished, setFinished] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [bestScores, setBestScores] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (mockMode) {
+      return;
+    }
+
+    let cancelled = false;
+    void fetchQuizzes()
+      .then((loadedQuizzes) => {
+        if (cancelled) {
+          return;
+        }
+        setQuizzes(loadedQuizzes);
+        if (initialLectureId) {
+          const match = loadedQuizzes.find(
+            (q) => q.lectureId === initialLectureId
+          );
+          if (match) {
+            setActiveQuiz(match);
+          }
+        }
+        setLoadError("");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(extractApiErrorMessage(err).message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialLectureId, mockMode]);
 
   useEffect(() => {
     if (!activeQuiz || finished) {
@@ -114,56 +164,86 @@ export default function QuizStudio({ initialLectureId }: QuizStudioProps) {
           </p>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {quizzesData.map((quiz) => {
-            const best = bestScores[quiz.id];
-            return (
-              <Card
-                key={quiz.id}
-                className="flex flex-col justify-between rounded-2xl py-5 shadow-sm transition hover:ring-primary/40 hover:shadow-md"
-              >
-                <CardHeader className="space-y-2.5 px-5">
-                  <div className="flex items-center justify-between gap-2">
-                    <Badge variant="secondary">{quiz.subject}</Badge>
-                    <Badge variant="outline">{quiz.difficulty}</Badge>
-                  </div>
+        {loadError && (
+          <p
+            role="alert"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+          >
+            {loadError}
+          </p>
+        )}
 
-                  <CardTitle className="text-lg font-semibold">
-                    {quiz.title}
-                  </CardTitle>
-                  <CardDescription>{quiz.lectureTitle}</CardDescription>
-                </CardHeader>
+        {loading ? (
+          <Card className="rounded-2xl py-12 text-center shadow-sm">
+            <CardContent className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 size={18} className="animate-spin text-primary" />
+              Loading practice quizzes...
+            </CardContent>
+          </Card>
+        ) : quizzes.length === 0 ? (
+          <Card className="rounded-2xl py-12 text-center shadow-sm">
+            <CardContent className="space-y-3 px-6">
+              <Sparkles size={28} className="mx-auto text-primary" />
+              <h2 className="text-lg font-semibold text-foreground">
+                No quizzes generated yet
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Upload a lecture with Quiz generation enabled to create practice quizzes.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {quizzes.map((quiz) => {
+              const best = bestScores[quiz.id];
+              return (
+                <Card
+                  key={quiz.id}
+                  className="flex flex-col justify-between rounded-2xl py-5 shadow-sm transition hover:ring-primary/40 hover:shadow-md"
+                >
+                  <CardHeader className="space-y-2.5 px-5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="secondary">{quiz.subject}</Badge>
+                      <Badge variant="outline">{quiz.difficulty}</Badge>
+                    </div>
 
-                <CardContent className="px-5">
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      <ClipboardCheck size={14} className="text-primary" />
-                      {quiz.questions.length} questions
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <Clock3 size={14} className="text-primary" />
-                      ~{quiz.estimatedMinutes} min
-                    </span>
-                    {best !== undefined && (
-                      <Badge variant="default">Best: {best}%</Badge>
-                    )}
-                  </div>
-                </CardContent>
+                    <CardTitle className="text-lg font-semibold">
+                      {quiz.title}
+                    </CardTitle>
+                    <CardDescription>{quiz.lectureTitle}</CardDescription>
+                  </CardHeader>
 
-                <CardFooter className="bg-transparent px-5 pt-3">
-                  <Button
-                    type="button"
-                    onClick={() => startQuiz(quiz)}
-                    className="w-full rounded-xl"
-                  >
-                    Start Quiz
-                    <ArrowRight size={15} />
-                  </Button>
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
+                  <CardContent className="px-5">
+                    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <ClipboardCheck size={14} className="text-primary" />
+                        {quiz.questions.length} questions
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock3 size={14} className="text-primary" />
+                        ~{quiz.estimatedMinutes} min
+                      </span>
+                      {best !== undefined && (
+                        <Badge variant="default">Best: {best}%</Badge>
+                      )}
+                    </div>
+                  </CardContent>
+
+                  <CardFooter className="bg-transparent px-5 pt-3">
+                    <Button
+                      type="button"
+                      onClick={() => startQuiz(quiz)}
+                      className="w-full rounded-xl"
+                    >
+                      Start Quiz
+                      <ArrowRight size={15} />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
     );
   }
@@ -172,9 +252,10 @@ export default function QuizStudio({ initialLectureId }: QuizStudioProps) {
     const correctCount = activeQuiz.questions.filter(
       (q) => answers[q.id] === q.correctIndex
     ).length;
-    const scorePercent = Math.round(
-      (correctCount / activeQuiz.questions.length) * 100
-    );
+    const scorePercent =
+      activeQuiz.questions.length > 0
+        ? Math.round((correctCount / activeQuiz.questions.length) * 100)
+        : 0;
 
     return (
       <div className="mx-auto max-w-3xl space-y-6">

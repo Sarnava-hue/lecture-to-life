@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import {
   Activity,
@@ -22,7 +22,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API_BASE_URL, isMockModeEnabled } from "@/lib/api-client";
-import { checkBackendHealth } from "@/lib/services/study-service";
+import {
+  checkBackendHealth,
+  fetchCurrentUser,
+} from "@/lib/services/study-service";
 
 type ThemeChoice = "light" | "dark" | "system";
 
@@ -48,8 +51,11 @@ function getStoredTheme(): ThemeChoice {
 }
 
 export default function SettingsPanel() {
-  const [name, setName] = useState("Anushka Dey");
-  const [email, setEmail] = useState("student@lecturetolife.app");
+  const mockMode = isMockModeEnabled();
+  const [name, setName] = useState(mockMode ? "Anushka Dey" : "");
+  const [email, setEmail] = useState(
+    mockMode ? "student@lecturetolife.app" : ""
+  );
   const [major, setMajor] = useState("Computer Science & AI");
   const [dailyCardsGoal, setDailyCardsGoal] = useState("25");
   const [quizDifficulty, setQuizDifficulty] = useState("Medium");
@@ -60,6 +66,26 @@ export default function SettingsPanel() {
     reachable: boolean;
     status: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (mockMode) {
+      return;
+    }
+    let cancelled = false;
+    void fetchCurrentUser()
+      .then((user) => {
+        if (!cancelled) {
+          setName(user.name);
+          setEmail(user.email);
+        }
+      })
+      .catch(() => {
+        // Ignore when unauthenticated.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mockMode]);
 
   const themeChoice = useSyncExternalStore<ThemeChoice>(
     subscribeThemeStorage,

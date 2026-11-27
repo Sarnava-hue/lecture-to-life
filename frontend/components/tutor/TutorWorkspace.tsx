@@ -14,16 +14,20 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { extractApiErrorMessage } from "@/lib/api-client";
+import { extractApiErrorMessage, isMockModeEnabled } from "@/lib/api-client";
 import { initialTutorMessages, lecturesData } from "@/lib/mock-data";
-import { askTutor } from "@/lib/services/study-service";
-import type { TutorMessage } from "@/types/study";
+import {
+  askTutor,
+  fetchLectures,
+  fetchTutorHistory,
+} from "@/lib/services/study-service";
+import type { Lecture, TutorMessage } from "@/types/study";
 
 const suggestedPromptsByScope: Record<string, string[]> = {
   all: [
-    "Compare overfitting vs. underfitting from my ML lecture",
-    "What is a Process Control Block and why does context switching cost time?",
-    "Summarize the difference between 2NF and 3NF",
+    "Summarize the main concepts across my uploaded lectures",
+    "What are the most important definitions I should remember?",
+    "Give me 3 practice questions based on my lecture notes",
   ],
   "1": [
     "Explain the bias-variance tradeoff in simple terms",
@@ -49,12 +53,22 @@ export interface TutorWorkspaceProps {
 export default function TutorWorkspace({
   initialLectureId,
 }: TutorWorkspaceProps) {
-  const initialScope =
-    initialLectureId && lecturesData.some((l) => l.id === initialLectureId)
-      ? initialLectureId
-      : "all";
+  const mockMode = isMockModeEnabled();
 
-  const [scopeId, setScopeId] = useState(initialScope);
+  const [lectures, setLectures] = useState<Lecture[]>(() =>
+    mockMode ? lecturesData : []
+  );
+  const [scopeId, setScopeId] = useState(() => {
+    if (!initialLectureId) {
+      return "all";
+    }
+    if (mockMode) {
+      return lecturesData.some((l) => l.id === initialLectureId)
+        ? initialLectureId
+        : "all";
+    }
+    return initialLectureId;
+  });
   const [chatSession, setChatSession] = useState(1);
   const [messages, setMessages] = useState<TutorMessage[]>(initialTutorMessages);
   const [input, setInput] = useState("");
@@ -66,6 +80,48 @@ export default function TutorWorkspace({
   useEffect(() => {
     return () => abortRef.current?.abort();
   }, []);
+
+  useEffect(() => {
+    if (mockMode) {
+      return;
+    }
+
+    let cancelled = false;
+    void fetchLectures()
+      .then((loaded) => {
+        if (!cancelled) {
+          setLectures(loaded);
+        }
+      })
+      .catch(() => {
+        // Ignore non-critical lecture scope fetch failures.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mockMode]);
+
+  useEffect(() => {
+    if (mockMode) {
+      return;
+    }
+
+    let cancelled = false;
+    void fetchTutorHistory(scopeId === "all" ? undefined : scopeId)
+      .then((history) => {
+        if (!cancelled) {
+          setMessages(history.length > 0 ? history : initialTutorMessages);
+        }
+      })
+      .catch(() => {
+        // Keep welcome message if history is unavailable.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mockMode, scopeId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -193,7 +249,7 @@ export default function TutorWorkspace({
                 All Lectures
               </Button>
 
-              {lecturesData.map((lecture) => (
+              {lectures.map((lecture) => (
                 <Button
                   key={lecture.id}
                   type="button"
@@ -246,7 +302,7 @@ export default function TutorWorkspace({
                           : "bg-primary/10 text-xs font-semibold text-primary"
                       }
                     >
-                      {isUser ? "AD" : "AI"}
+                      {isUser ? "YOU" : "AI"}
                     </AvatarFallback>
                   </Avatar>
 

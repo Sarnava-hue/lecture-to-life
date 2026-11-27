@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   BookOpen,
@@ -5,12 +8,14 @@ import {
   ClipboardCheck,
   Flame,
   Plus,
+  Upload,
 } from "lucide-react";
 
 import WelcomeSection from "@/components/dashboard/WelcomeSection";
 import StatCard from "@/components/dashboard/StatCard";
 import QuickAction from "@/components/dashboard/QuickAction";
 import RecentLecture from "@/components/dashboard/RecentLecture";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -18,9 +23,75 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { recentLectures } from "@/lib/mock-lectures";
+import { isMockModeEnabled } from "@/lib/api-client";
+import {
+  flashcardsData,
+  lecturesData,
+  quizzesData,
+  quizScoreTrendData,
+  subjectMasteryData,
+  weeklyStudyData,
+} from "@/lib/mock-data";
+import { fetchProgressAnalytics } from "@/lib/services/study-service";
+import type { ProgressAnalyticsResponse } from "@/types/api";
+
+const mockAnalytics: ProgressAnalyticsResponse = {
+  weeklyStudy: weeklyStudyData,
+  quizTrend: quizScoreTrendData,
+  subjectMastery: subjectMasteryData,
+  recentLectures: lecturesData,
+  totalFlashcards: flashcardsData.length,
+  totalQuizzes: quizzesData.length,
+};
 
 export default function DashboardPage() {
+  const mockMode = isMockModeEnabled();
+  const [analytics, setAnalytics] = useState<ProgressAnalyticsResponse | null>(
+    () => (mockMode ? mockAnalytics : null)
+  );
+
+  useEffect(() => {
+    if (mockMode) {
+      return;
+    }
+
+    let cancelled = false;
+    void fetchProgressAnalytics()
+      .then((data) => {
+        if (!cancelled) {
+          setAnalytics(data);
+        }
+      })
+      .catch(() => {
+        // 401 redirect or offline state handled cleanly.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mockMode]);
+
+  const weeklyMinutes = (analytics?.weeklyStudy ?? []).reduce(
+    (sum, point) => sum + point.minutes,
+    0
+  );
+  const weeklyCards = (analytics?.weeklyStudy ?? []).reduce(
+    (sum, point) => sum + point.cards,
+    0
+  );
+  const activeDays = (analytics?.weeklyStudy ?? []).filter(
+    (point) => point.minutes > 0 || point.cards > 0
+  ).length;
+  const quizTrend = analytics?.quizTrend ?? [];
+  const avgQuizScore =
+    quizTrend.length > 0
+      ? Math.round(
+          quizTrend.reduce((sum, item) => sum + item.score, 0) / quizTrend.length
+        )
+      : null;
+
+  const recentLectures = (analytics?.recentLectures ?? []).slice(0, 5);
+
   return (
     <div className="space-y-8">
       <WelcomeSection />
@@ -39,32 +110,36 @@ export default function DashboardPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             title="Lectures"
-            value="12"
-            description="3 added this week"
+            value={analytics ? String(analytics.recentLectures.length) : "—"}
+            description="Uploaded to your workspace"
             icon={BookOpen}
             href="/lectures"
           />
 
           <StatCard
             title="Flashcards"
-            value="186"
-            description="24 reviewed this week"
+            value={analytics ? String(analytics.totalFlashcards) : "—"}
+            description={`${weeklyCards} reviewed this week`}
             icon={Layers}
             href="/flashcards"
           />
 
           <StatCard
             title="Quizzes"
-            value="8"
-            description="Average score: 84%"
+            value={analytics ? String(analytics.totalQuizzes) : "—"}
+            description={
+              avgQuizScore !== null
+                ? `Average score: ${avgQuizScore}%`
+                : "No attempts recorded yet"
+            }
             icon={ClipboardCheck}
             href="/quizzes"
           />
 
           <StatCard
-            title="Study streak"
-            value="7 days"
-            description="Keep the streak going"
+            title="Study activity"
+            value={analytics ? `${activeDays}d` : "—"}
+            description={`${weeklyMinutes} minutes in last 7 days`}
             icon={Flame}
             href="/progress"
           />
@@ -93,11 +168,33 @@ export default function DashboardPage() {
           </CardHeader>
 
           <CardContent className="px-5">
-            <div className="divide-y divide-border">
-              {recentLectures.map((lecture) => (
-                <RecentLecture key={lecture.id} {...lecture} />
-              ))}
-            </div>
+            {analytics && recentLectures.length === 0 ? (
+              <div className="space-y-3 py-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No lectures uploaded yet. Upload your first PDF, DOCX, TXT, or audio recording.
+                </p>
+                <Button
+                  render={<Link href="/lectures/upload" />}
+                  nativeButton={false}
+                  size="sm"
+                >
+                  <Upload size={15} />
+                  Upload Lecture
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {recentLectures.map((lecture) => (
+                  <RecentLecture
+                    key={lecture.id}
+                    id={lecture.id}
+                    title={lecture.title}
+                    subject={lecture.subject}
+                    duration={lecture.duration}
+                  />
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -1,4 +1,5 @@
 import {
+  ApiError,
   apiClient,
   clearAccessToken,
   isMockModeEnabled,
@@ -6,6 +7,7 @@ import {
 } from "@/lib/api-client";
 import {
   flashcardsData,
+  initialTutorMessages,
   lecturesData,
   quizzesData,
   quizScoreTrendData,
@@ -27,8 +29,9 @@ import type {
   TutorAskResponse,
   UploadLectureMetadata,
   UploadLectureResponse,
+  UserProfile,
 } from "@/types/api";
-import type { Flashcard, Lecture, Quiz } from "@/types/study";
+import type { Flashcard, Lecture, Quiz, TutorMessage } from "@/types/study";
 
 const API_PREFIX = "/api/v1";
 
@@ -131,6 +134,18 @@ export function logoutUser(): void {
   clearAccessToken();
 }
 
+export async function fetchCurrentUser(): Promise<UserProfile> {
+  if (isMockModeEnabled()) {
+    return {
+      id: "preview-user",
+      name: "Anushka Dey",
+      email: "student@lecturetolife.app",
+    };
+  }
+  const response = await apiClient.get<UserProfile>(`${API_PREFIX}/auth/profile`);
+  return response.data;
+}
+
 export async function fetchLectures(): Promise<Lecture[]> {
   if (isMockModeEnabled()) {
     return lecturesData;
@@ -143,8 +158,15 @@ export async function fetchLectureById(id: string): Promise<Lecture | null> {
   if (isMockModeEnabled()) {
     return lecturesData.find((item) => item.id === id) ?? null;
   }
-  const response = await apiClient.get<Lecture>(`${API_PREFIX}/lectures/${id}`);
-  return response.data;
+  try {
+    const response = await apiClient.get<Lecture>(`${API_PREFIX}/lectures/${id}`);
+    return response.data;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 export async function uploadLecture(
@@ -289,14 +311,15 @@ export async function createFlashcard(
 
 export async function reviewFlashcard(
   payload: ReviewFlashcardRequest
-): Promise<void> {
+): Promise<Flashcard | void> {
   if (isMockModeEnabled()) {
     return;
   }
-  await apiClient.post(
+  const response = await apiClient.post<Flashcard>(
     `${API_PREFIX}/flashcards/${payload.flashcardId}/review`,
     payload
   );
+  return response.data;
 }
 
 export async function fetchQuizzes(lectureId?: string): Promise<Quiz[]> {
@@ -389,6 +412,22 @@ export async function askTutor(
     `${API_PREFIX}/tutor/ask`,
     payload,
     { signal }
+  );
+  return response.data;
+}
+
+export async function fetchTutorHistory(
+  lectureId?: string
+): Promise<TutorMessage[]> {
+  if (isMockModeEnabled()) {
+    return initialTutorMessages;
+  }
+  const response = await apiClient.get<TutorMessage[]>(
+    `${API_PREFIX}/tutor/history`,
+    {
+      params:
+        lectureId && lectureId !== "all" ? { lecture_id: lectureId } : undefined,
+    }
   );
   return response.data;
 }

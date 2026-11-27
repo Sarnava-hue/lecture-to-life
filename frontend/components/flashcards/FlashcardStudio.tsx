@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Eye,
   Lightbulb,
+  Loader2,
   Plus,
   RotateCcw,
   Sparkles,
@@ -28,12 +29,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
+import { extractApiErrorMessage, isMockModeEnabled } from "@/lib/api-client";
 import { flashcardsData, lecturesData } from "@/lib/mock-data";
 import {
   createFlashcard,
+  fetchFlashcards,
+  fetchLectures,
   reviewFlashcard,
 } from "@/lib/services/study-service";
-import type { Flashcard, FlashcardMastery } from "@/types/study";
+import type { Flashcard, FlashcardMastery, Lecture } from "@/types/study";
 
 type MasteryFilter = "all" | FlashcardMastery;
 
@@ -46,6 +50,7 @@ const masteryBadgeLabel: Record<FlashcardMastery, string> = {
 const ratingActions: {
   key: string;
   label: string;
+  rating: "again" | "hard" | "good" | "easy";
   nextMastery: FlashcardMastery;
   nextReviewLabel: string;
   variant: "destructive" | "outline" | "secondary" | "default";
@@ -53,6 +58,7 @@ const ratingActions: {
   {
     key: "1",
     label: "Again",
+    rating: "again",
     nextMastery: "learning",
     nextReviewLabel: "In 10 min",
     variant: "destructive",
@@ -60,6 +66,7 @@ const ratingActions: {
   {
     key: "2",
     label: "Hard",
+    rating: "hard",
     nextMastery: "learning",
     nextReviewLabel: "In 1 day",
     variant: "outline",
@@ -67,6 +74,7 @@ const ratingActions: {
   {
     key: "3",
     label: "Good",
+    rating: "good",
     nextMastery: "mastered",
     nextReviewLabel: "In 4 days",
     variant: "secondary",
@@ -74,6 +82,7 @@ const ratingActions: {
   {
     key: "4",
     label: "Easy",
+    rating: "easy",
     nextMastery: "mastered",
     nextReviewLabel: "In 7 days",
     variant: "default",
@@ -87,12 +96,28 @@ export interface FlashcardStudioProps {
 export default function FlashcardStudio({
   initialLectureId,
 }: FlashcardStudioProps) {
-  const [cards, setCards] = useState<Flashcard[]>(flashcardsData);
-  const [lectureFilter, setLectureFilter] = useState<string>(
-    initialLectureId && lecturesData.some((l) => l.id === initialLectureId)
-      ? initialLectureId
-      : "all"
+  const mockMode = isMockModeEnabled();
+
+  const [cards, setCards] = useState<Flashcard[]>(() =>
+    mockMode ? flashcardsData : []
   );
+  const [lectures, setLectures] = useState<Lecture[]>(() =>
+    mockMode ? lecturesData : []
+  );
+  const [loading, setLoading] = useState(!mockMode);
+  const [loadError, setLoadError] = useState("");
+
+  const [lectureFilter, setLectureFilter] = useState<string>(() => {
+    if (!initialLectureId) {
+      return "all";
+    }
+    if (mockMode) {
+      return lecturesData.some((l) => l.id === initialLectureId)
+        ? initialLectureId
+        : "all";
+    }
+    return initialLectureId;
+  });
   const [masteryFilter, setMasteryFilter] = useState<MasteryFilter>("all");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -101,10 +126,44 @@ export default function FlashcardStudio({
   const [sessionDone, setSessionDone] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
-  const [newLectureId, setNewLectureId] = useState(lecturesData[0]?.id ?? "1");
+  const [newLectureId, setNewLectureId] = useState(() =>
+    mockMode ? (lecturesData[0]?.id ?? "1") : ""
+  );
   const [newFront, setNewFront] = useState("");
   const [newBack, setNewBack] = useState("");
   const [newHint, setNewHint] = useState("");
+
+  useEffect(() => {
+    if (mockMode) {
+      return;
+    }
+
+    let cancelled = false;
+    void Promise.all([fetchFlashcards(), fetchLectures()])
+      .then(([loadedCards, loadedLectures]) => {
+        if (cancelled) {
+          return;
+        }
+        setCards(loadedCards);
+        setLectures(loadedLectures);
+        setNewLectureId((prev) => prev || loadedLectures[0]?.id || "");
+        setLoadError("");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(extractApiErrorMessage(err).message);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mockMode]);
 
   const deck = useMemo(() => {
     return cards.filter((card) => {
@@ -120,28 +179,43 @@ export default function FlashcardStudio({
   const currentCard = deck[safeIndex];
 
   const handleRate = useCallback(
-    (nextMastery: FlashcardMastery, nextReviewLabel: string) => {
+    (
+      nextMastery: FlashcardMastery,
+      nextReviewLabel: string,
+      ratingValue?: "again" | "hard" | "good" | "easy"
+    ) => {
       if (!currentCard) {
         return;
       }
 
+      const resolvedRating =
+        ratingValue ??
+        (nextReviewLabel === "In 10 min"
+          ? "again"
+          : nextReviewLabel === "In 1 day"
+            ? "hard"
+            : nextReviewLabel === "In 4 days"
+              ? "good"
+              : "easy");
+
+      const targetCardId = currentCard.id;
+
       void reviewFlashcard({
-        flashcardId: currentCard.id,
-        rating:
-          nextReviewLabel === "In 10 min"
-            ? "again"
-            : nextReviewLabel === "In 1 day"
-              ? "hard"
-              : nextReviewLabel === "In 4 days"
-                ? "good"
-                : "easy",
+        flashcardId: targetCardId,
+        rating: resolvedRating,
         nextMastery,
         nextReviewLabel,
+      }).then((updated) => {
+        if (updated) {
+          setCards((prev) =>
+            prev.map((item) => (item.id === targetCardId ? updated : item))
+          );
+        }
       });
 
       setCards((prev) =>
         prev.map((item) =>
-          item.id === currentCard.id
+          item.id === targetCardId
             ? { ...item, mastery: nextMastery, nextReviewLabel }
             : item
         )
@@ -183,7 +257,7 @@ export default function FlashcardStudio({
       const rating = ratingActions.find((item) => item.key === event.key);
       if (rating && isFlipped) {
         event.preventDefault();
-        handleRate(rating.nextMastery, rating.nextReviewLabel);
+        handleRate(rating.nextMastery, rating.nextReviewLabel, rating.rating);
       }
     }
 
@@ -203,7 +277,7 @@ export default function FlashcardStudio({
 
   async function handleAddCard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!newFront.trim() || !newBack.trim()) {
+    if (!newFront.trim() || !newBack.trim() || !newLectureId) {
       return;
     }
 
@@ -243,6 +317,7 @@ export default function FlashcardStudio({
 
         <Button
           type="button"
+          disabled={lectures.length === 0}
           onClick={() => setAddOpen(true)}
           className="h-10 shrink-0 rounded-xl px-4 text-sm font-semibold"
         >
@@ -263,7 +338,7 @@ export default function FlashcardStudio({
             className="h-9 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="all">All Lectures ({cards.length})</option>
-            {lecturesData.map((lecture) => (
+            {lectures.map((lecture) => (
               <option key={lecture.id} value={lecture.id}>
                 {lecture.title}
               </option>
@@ -289,7 +364,23 @@ export default function FlashcardStudio({
         </div>
       </div>
 
-      {deck.length === 0 ? (
+      {loadError && (
+        <p
+          role="alert"
+          className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          {loadError}
+        </p>
+      )}
+
+      {loading ? (
+        <Card className="rounded-2xl py-12 text-center shadow-sm">
+          <CardContent className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 size={18} className="animate-spin text-primary" />
+            Loading flashcards...
+          </CardContent>
+        </Card>
+      ) : deck.length === 0 ? (
         <Card className="rounded-2xl py-12 text-center shadow-sm">
           <CardContent className="space-y-3 px-6">
             <Sparkles size={28} className="mx-auto text-primary" />
@@ -410,7 +501,11 @@ export default function FlashcardStudio({
                         type="button"
                         variant={action.variant}
                         onClick={() =>
-                          handleRate(action.nextMastery, action.nextReviewLabel)
+                          handleRate(
+                            action.nextMastery,
+                            action.nextReviewLabel,
+                            action.rating
+                          )
                         }
                         className="h-auto flex-col gap-0.5 py-2.5"
                       >
@@ -459,7 +554,7 @@ export default function FlashcardStudio({
                 onChange={(event) => setNewLectureId(event.target.value)}
                 className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm"
               >
-                {lecturesData.map((lecture) => (
+                {lectures.map((lecture) => (
                   <option key={lecture.id} value={lecture.id}>
                     {lecture.title}
                   </option>

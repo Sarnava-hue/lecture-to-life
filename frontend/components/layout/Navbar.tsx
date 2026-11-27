@@ -16,6 +16,7 @@ import {
   BookOpen,
   Check,
   LogIn,
+  LogOut,
   Menu,
   Moon,
   Search,
@@ -44,7 +45,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { isMockModeEnabled } from "@/lib/api-client";
 import { recentLectures } from "@/lib/mock-lectures";
+import {
+  fetchCurrentUser,
+  fetchLectures,
+  logoutUser,
+} from "@/lib/services/study-service";
+import type { UserProfile } from "@/types/api";
 
 interface NotificationItem {
   id: string;
@@ -61,26 +69,33 @@ interface SearchResultItem {
   category: string;
 }
 
+interface SearchLectureItem {
+  id: string;
+  title: string;
+  subject: string;
+  duration: string;
+}
+
 const initialNotifications: NotificationItem[] = [
   {
     id: "n1",
     title: "Flashcards ready",
-    detail: "18 cards generated for Introduction to Machine Learning",
+    detail: "Review spaced-repetition cards from your lectures",
     href: "/flashcards",
     unread: true,
   },
   {
     id: "n2",
-    title: "7-day study streak",
-    detail: "Keep going with a quick 5-question quiz today",
+    title: "Practice quizzes",
+    detail: "Test your comprehension with instant explanations",
     href: "/quizzes",
     unread: true,
   },
   {
     id: "n3",
-    title: "Lecture indexed",
-    detail: "Database Normalization is ready for AI Tutor Q&A",
-    href: "/lectures/3",
+    title: "AI Tutor ready",
+    detail: "Ask cited questions across your uploaded lectures",
+    href: "/tutor",
     unread: false,
   },
 ];
@@ -92,6 +107,17 @@ const quickJumpLinks = [
   { label: "Ask AI Tutor", href: "/tutor", category: "Study" },
   { label: "View learning progress", href: "/progress", category: "Analytics" },
 ];
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return "LT";
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
 
 function SearchResultsList({
   results,
@@ -163,6 +189,7 @@ export interface NavbarProps {
 
 export default function Navbar({ onOpenMobileNav }: NavbarProps) {
   const router = useRouter();
+  const mockMode = isMockModeEnabled();
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
   const desktopInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -171,11 +198,41 @@ export default function Navbar({ onOpenMobileNav }: NavbarProps) {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [notifications, setNotifications] =
     useState<NotificationItem[]>(initialNotifications);
+  const [searchableLectures, setSearchableLectures] = useState<SearchLectureItem[]>(
+    () => (mockMode ? recentLectures : [])
+  );
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+
   const isDark = useSyncExternalStore(
     subscribeThemeChange,
     getThemeSnapshot,
     getThemeServerSnapshot
   );
+
+  useEffect(() => {
+    if (mockMode) {
+      return;
+    }
+
+    let cancelled = false;
+    void Promise.allSettled([fetchLectures(), fetchCurrentUser()]).then(
+      ([lecturesRes, userRes]) => {
+        if (cancelled) {
+          return;
+        }
+        if (lecturesRes.status === "fulfilled") {
+          setSearchableLectures(lecturesRes.value);
+        }
+        if (userRes.status === "fulfilled") {
+          setCurrentUser(userRes.value);
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mockMode]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -213,7 +270,7 @@ export default function Navbar({ onOpenMobileNav }: NavbarProps) {
   const searchResults = useMemo<SearchResultItem[]>(() => {
     const normalized = query.trim().toLowerCase();
 
-    const matchedLectures: SearchResultItem[] = recentLectures
+    const matchedLectures: SearchResultItem[] = searchableLectures
       .filter(
         (lecture) =>
           !normalized ||
@@ -242,7 +299,7 @@ export default function Navbar({ onOpenMobileNav }: NavbarProps) {
       }));
 
     return [...matchedLectures, ...matchedQuickLinks].slice(0, 6);
-  }, [query]);
+  }, [query, searchableLectures]);
 
   const unreadCount = notifications.filter((item) => item.unread).length;
 
@@ -278,6 +335,14 @@ export default function Navbar({ onOpenMobileNav }: NavbarProps) {
   function handleQueryChange(event: ChangeEvent<HTMLInputElement>) {
     setQuery(event.target.value);
   }
+
+  function handleSignOut() {
+    logoutUser();
+    setCurrentUser(null);
+    router.push("/login");
+  }
+
+  const avatarInitials = currentUser ? getInitials(currentUser.name) : "AD";
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border bg-card/95 px-4 backdrop-blur-xs md:px-6">
@@ -439,7 +504,7 @@ export default function Navbar({ onOpenMobileNav }: NavbarProps) {
           >
             <Avatar>
               <AvatarFallback className="bg-primary/10 font-semibold text-primary">
-                AD
+                {avatarInitials}
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
@@ -447,8 +512,13 @@ export default function Navbar({ onOpenMobileNav }: NavbarProps) {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuGroup>
               <DropdownMenuLabel className="font-normal">
-                <p className="text-sm font-medium text-foreground">Student Workspace</p>
-                <p className="text-xs text-muted-foreground">Local preview profile</p>
+                <p className="text-sm font-medium text-foreground">
+                  {currentUser?.name || "Student Workspace"}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {currentUser?.email ||
+                    (mockMode ? "Local preview profile" : "Not signed in")}
+                </p>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
 
@@ -472,10 +542,17 @@ export default function Navbar({ onOpenMobileNav }: NavbarProps) {
             <DropdownMenuSeparator />
 
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => router.push("/login")}>
-                <LogIn size={15} />
-                Sign In / Switch Account
-              </DropdownMenuItem>
+              {currentUser ? (
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut size={15} />
+                  Sign Out
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => router.push("/login")}>
+                  <LogIn size={15} />
+                  Sign In / Switch Account
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>

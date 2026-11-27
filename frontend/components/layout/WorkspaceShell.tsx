@@ -1,14 +1,22 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import Navbar from "@/components/layout/Navbar";
+import { getAccessToken, isMockModeEnabled } from "@/lib/api-client";
 
 export default function WorkspaceShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [openPathname, setOpenPathname] = useState<string | null>(null);
   const mobileNavOpen = openPathname === pathname;
+
+  useEffect(() => {
+    if (!isMockModeEnabled() && !getAccessToken()) {
+      router.replace("/login");
+    }
+  }, [pathname, router]);
 
   useEffect(() => {
     if (!mobileNavOpen) {
