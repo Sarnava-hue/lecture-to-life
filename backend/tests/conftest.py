@@ -27,9 +27,10 @@ if sys.platform == "win32" and sys.version_info[:2] == (3, 14):
     asyncio.all_tasks = _asyncio_tasks.all_tasks
     asyncio.current_task = _asyncio_tasks.current_task
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_bootstrap.db")
-os.environ.setdefault("SECRET_KEY", "test-secret-key-at-least-32-chars-long-123456")
-os.environ.setdefault("ENVIRONMENT", "test")
+os.environ["DATABASE_URL"] = "sqlite:///./test_bootstrap.db"
+os.environ["SECRET_KEY"] = "test-secret-key-at-least-32-chars-long-123456"
+os.environ["ENVIRONMENT"] = "test"
+os.environ["GEMINI_API_KEY"] = ""
 
 import pytest
 from fastapi.testclient import TestClient

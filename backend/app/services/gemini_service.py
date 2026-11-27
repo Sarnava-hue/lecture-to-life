@@ -78,6 +78,36 @@ def _get_client(client: genai.Client | None = None) -> genai.Client | None:
     return genai.Client(api_key=api_key)
 
 
+def _candidate_models() -> list[str]:
+    """Return ordered unique Gemini chat models starting with configured primary."""
+    ordered = [settings.GEMINI_MODEL, *settings.GEMINI_FALLBACK_MODELS]
+    seen: set[str] = set()
+    return [m for m in ordered if m and not (m in seen or seen.add(m))]
+
+
+def _generate_with_model_fallback(
+    client: genai.Client,
+    *,
+    contents: Any,
+    config: types.GenerateContentConfig | None = None,
+) -> Any:
+    """Try primary GEMINI_MODEL and fall back across GEMINI_FALLBACK_MODELS on errors."""
+    last_exc: Exception | None = None
+    for model_name in _candidate_models():
+        try:
+            return client.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config,
+            )
+        except Exception as exc:
+            logger.warning("Gemini model '%s' failed (%s); trying fallback.", model_name, exc)
+            last_exc = exc
+    if last_exc is not None:
+        raise last_exc
+    raise RuntimeError("No Gemini models configured.")
+
+
 def transcribe_audio_with_gemini(
     file_path: Path,
     lecture_id: int,
@@ -99,8 +129,8 @@ def transcribe_audio_with_gemini(
         "timestamp references like '00:00 · 00:00–05:15', plus an overall duration "
         "estimate like '35 min'."
     )
-    response = active_client.models.generate_content(
-        model=settings.GEMINI_MODEL,
+    response = _generate_with_model_fallback(
+        active_client,
         contents=[uploaded_file, prompt],
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
@@ -142,8 +172,8 @@ def ocr_image_bytes_with_gemini(
         return ""
 
     part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
-    response = active_client.models.generate_content(
-        model=settings.GEMINI_MODEL,
+    response = _generate_with_model_fallback(
+        active_client,
         contents=[
             part,
             "Transcribe all readable text, headings, equations, and bullet points from this lecture slide or page accurately.",
@@ -308,8 +338,8 @@ def generate_study_bundle(
     )
 
     try:
-        response = active_client.models.generate_content(
-            model=settings.GEMINI_MODEL,
+        response = _generate_with_model_fallback(
+            active_client,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -404,8 +434,8 @@ def answer_grounded_question(
             f"EXCERPTS:\n{context_block}\n\nQUESTION: {question}"
         )
         try:
-            response = active_client.models.generate_content(
-                model=settings.GEMINI_MODEL,
+            response = _generate_with_model_fallback(
+                active_client,
                 contents=prompt,
                 config=types.GenerateContentConfig(temperature=0.2),
             )

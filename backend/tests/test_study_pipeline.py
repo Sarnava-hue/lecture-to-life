@@ -255,3 +255,31 @@ def test_scanned_pdf_triggers_ocr_fallback(
     assert lecture["status"] == "ready"
     assert len(lecture["segments"]) == 1
     assert "Scanned Slide" in lecture["segments"][0]["text"]
+
+
+def test_gemini_model_fallback_retries_secondary_model() -> None:
+    from app.services.gemini_service import answer_grounded_question
+
+    attempted: list[str] = []
+
+    class _FallbackModels:
+        def generate_content(self, *, model, **_kwargs):
+            attempted.append(model)
+            if model == "gemini-3.5-flash":
+                raise RuntimeError("503 UNAVAILABLE")
+            return SimpleNamespace(text="Fallback model answered cleanly (Page 1).")
+
+    fake_client = SimpleNamespace(models=_FallbackModels())
+    answer = answer_grounded_question(
+        question="What is backpropagation?",
+        context_chunks=[
+            {
+                "lectureTitle": "ML",
+                "reference": "Page 1",
+                "text": "Backprop uses chain rule.",
+            }
+        ],
+        client=fake_client,
+    )
+    assert "Fallback model answered cleanly" in answer
+    assert attempted == ["gemini-3.5-flash", "gemini-3.8-flash"]
