@@ -75,7 +75,15 @@ def _get_client(client: genai.Client | None = None) -> genai.Client | None:
     api_key = settings.GEMINI_API_KEY.strip()
     if not api_key:
         return None
-    return genai.Client(api_key=api_key)
+    return genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(
+            timeout=15_000,
+            retry_options=types.HttpRetryOptions(
+                attempts=1,
+            ),
+        ),
+    )
 
 
 def _candidate_models() -> list[str]:

@@ -9,7 +9,7 @@ flowchart LR
     API -->|BackgroundTasks| Extract["Extraction Service (pypdf / OCR / python-docx / Gemini Audio)"]
     Extract --> Chunk["Chunking Service (~220 words, 40 overlap)"]
     Chunk --> Embed["Gemini Embeddings (gemini-embedding-001)"]
-    Chunk --> Bundle["Gemini Structured Output (gemini-3.5-flash / 3.8-flash) / Extractive Fallback"]
+    Chunk --> Bundle["Gemini Structured Output (gemini-3.5-flash-lite / fallbacks) / Extractive Fallback"]
     Embed --> DB["PostgreSQL (SQLAlchemy 2.0 + Alembic)"]
     Bundle --> DB
     API -->|Ask Tutor| RAG["Hybrid RAG Service (Cosine + Lexical)"]

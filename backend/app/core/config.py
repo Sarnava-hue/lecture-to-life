@@ -22,8 +22,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.5-flash"
-    GEMINI_FALLBACK_MODELS: list[str] = ["gemini-3.8-flash", "gemini-3.6-flash"]
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_FALLBACK_MODELS: list[str] = [
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.8-flash",
+    ]
     GEMINI_EMBEDDING_MODEL: str = "gemini-embedding-001"
 
     ENVIRONMENT: str = "development"

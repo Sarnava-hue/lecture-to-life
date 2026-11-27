@@ -265,7 +265,7 @@ def test_gemini_model_fallback_retries_secondary_model() -> None:
     class _FallbackModels:
         def generate_content(self, *, model, **_kwargs):
             attempted.append(model)
-            if model == "gemini-3.5-flash":
+            if model == "gemini-3.5-flash-lite":
                 raise RuntimeError("503 UNAVAILABLE")
             return SimpleNamespace(text="Fallback model answered cleanly (Page 1).")
 
@@ -282,4 +282,4 @@ def test_gemini_model_fallback_retries_secondary_model() -> None:
         client=fake_client,
     )
     assert "Fallback model answered cleanly" in answer
-    assert attempted == ["gemini-3.5-flash", "gemini-3.8-flash"]
+    assert attempted == ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"]
