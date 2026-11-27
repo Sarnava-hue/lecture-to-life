@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import (
     APIRouter,
     BackgroundTasks,
+    Body,
     Depends,
     File,
     Form,
@@ -15,6 +16,8 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -28,6 +31,7 @@ from app.models.quiz import Quiz
 from app.models.user import User
 from app.schemas.document import (
     ALLOWED_GENERATION_TARGETS,
+    GenerationTarget,
     LectureResponse,
     LectureStatusResponse,
     UploadLectureResponse,
@@ -36,6 +40,7 @@ from app.schemas.document import (
 from app.services.lecture_processor import process_lecture_background
 from app.utils.file_utils import (
     delete_stored_file,
+    resolve_safe_stored_path,
     save_validated_upload,
     validate_upload_metadata,
 )
@@ -44,6 +49,10 @@ router = APIRouter(
     prefix="/api/v1/lectures",
     tags=["Lectures"],
 )
+
+
+class ReprocessLectureRequest(BaseModel):
+    targets: list[GenerationTarget] | None = None
 
 
 def _parse_targets(raw_targets: str) -> list[str]:
@@ -245,6 +254,83 @@ def get_lecture_status(
         status=normalized_status,
         progress=document.progress,
         error=document.error_message,
+    )
+
+
+@router.get("/{lecture_id}/download")
+def download_lecture(
+    lecture_id: int,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+):
+    """Download the original uploaded lecture file after verifying ownership."""
+    document = _get_owned_lecture_or_404(lecture_id, current_user.id, db)
+    upload_dir = getattr(
+        request.app.state, "upload_dir", settings.upload_dir_path
+    )
+    file_path = resolve_safe_stored_path(
+        document.storage_path, upload_dir=upload_dir
+    )
+    if file_path is None or not file_path.exists() or not file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Stored lecture file is missing.",
+        )
+
+    return FileResponse(
+        path=str(file_path),
+        media_type=document.content_type or "application/octet-stream",
+        filename=document.filename,
+    )
+
+
+@router.post(
+    "/{lecture_id}/reprocess",
+    response_model=UploadLectureResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def reprocess_lecture(
+    lecture_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    payload: ReprocessLectureRequest | None = Body(default=None),
+):
+    """Re-run extraction, chunking, and AI artifact generation for an existing lecture."""
+    document = _get_owned_lecture_or_404(lecture_id, current_user.id, db)
+    if document.status == "processing":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Lecture is already processing.",
+        )
+
+    if payload and payload.targets is not None:
+        document.targets = list(payload.targets)
+
+    document.status = "processing"
+    document.progress = 10
+    document.error_message = None
+    db.commit()
+
+    upload_dir = getattr(
+        request.app.state, "upload_dir", settings.upload_dir_path
+    )
+    session_factory = getattr(request.app.state, "session_factory", SessionLocal)
+    gemini_client = getattr(request.app.state, "gemini_client", None)
+    background_tasks.add_task(
+        process_lecture_background,
+        document.id,
+        session_factory,
+        upload_dir,
+        gemini_client,
+    )
+
+    return UploadLectureResponse(
+        lecture_id=str(document.id),
+        status="processing",
+        message="Lecture queued for reprocessing.",
     )
 
 

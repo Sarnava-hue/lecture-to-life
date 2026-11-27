@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 import docx
 from fastapi.testclient import TestClient
+from PIL import Image
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
@@ -106,6 +107,13 @@ class _FakeModelsAPI:
                         ],
                     ),
                 )
+            )
+        if isinstance(contents, list) and any(
+            isinstance(item, str) and "Transcribe all readable text" in item
+            for item in contents
+        ):
+            return SimpleNamespace(
+                text="Scanned Slide: Gradient descent optimizes neural network weights."
             )
         # Grounded tutor response
         return SimpleNamespace(
@@ -220,3 +228,30 @@ def test_mocked_gemini_audio_pipeline_and_vector_rag(
     assert "Cosine annealing" in body["answer"]
     assert len(body["citations"]) >= 1
     assert body["citations"][0]["lectureId"] == lecture_id
+
+
+def test_scanned_pdf_triggers_ocr_fallback(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    app.state.gemini_client = _FakeGeminiClient()
+
+    pdf_buf = io.BytesIO()
+    Image.new("RGB", (80, 40), "white").save(pdf_buf, format="PDF")
+    scanned_pdf = pdf_buf.getvalue()
+
+    upload = client.post(
+        "/api/v1/lectures/upload",
+        headers=auth_headers,
+        files={"file": ("scanned_slides.pdf", scanned_pdf, "application/pdf")},
+        data={"title": "Scanned Slides", "targets": '["summary"]'},
+    )
+    assert upload.status_code == 201
+    lecture_id = upload.json()["lecture_id"]
+
+    lecture = client.get(
+        f"/api/v1/lectures/{lecture_id}", headers=auth_headers
+    ).json()
+    assert lecture["status"] == "ready"
+    assert len(lecture["segments"]) == 1
+    assert "Scanned Slide" in lecture["segments"][0]["text"]

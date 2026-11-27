@@ -36,6 +36,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.rate_limit import rate_limiter
 from app.db import Base
 from app.db.dependencies import get_db
 from app.main import app
@@ -83,17 +84,23 @@ def client(
     app.dependency_overrides[get_db] = override_get_db
     app.state.session_factory = db_session_factory
     app.state.upload_dir = upload_dir
+    rate_limiter.reset()
 
     with TestClient(app) as test_client:
         yield test_client
 
     app.dependency_overrides.clear()
-    if hasattr(app.state, "session_factory"):
-        delattr(app.state, "session_factory")
-    if hasattr(app.state, "upload_dir"):
-        delattr(app.state, "upload_dir")
-    if hasattr(app.state, "gemini_client"):
-        delattr(app.state, "gemini_client")
+    rate_limiter.reset()
+    for attr in (
+        "session_factory",
+        "upload_dir",
+        "gemini_client",
+        "rate_limit_enabled",
+        "auth_rate_limit_requests",
+        "auth_rate_limit_window_seconds",
+    ):
+        if hasattr(app.state, attr):
+            delattr(app.state, attr)
 
 
 @pytest.fixture()

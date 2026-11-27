@@ -131,6 +131,28 @@ def transcribe_audio_with_gemini(
     return "\n\n".join(full_text_parts), segments, parsed.duration or "Audio"
 
 
+def ocr_image_bytes_with_gemini(
+    image_bytes: bytes,
+    mime_type: str = "image/png",
+    client: genai.Client | None = None,
+) -> str:
+    """Extract readable lecture text from a scanned slide or note image via Gemini."""
+    active_client = _get_client(client)
+    if active_client is None or not image_bytes:
+        return ""
+
+    part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+    response = active_client.models.generate_content(
+        model=settings.GEMINI_MODEL,
+        contents=[
+            part,
+            "Transcribe all readable text, headings, equations, and bullet points from this lecture slide or page accurately.",
+        ],
+        config=types.GenerateContentConfig(temperature=0.1),
+    )
+    return (getattr(response, "text", None) or "").strip()
+
+
 def _build_extractive_fallback_bundle(
     title: str,
     subject: str,

@@ -1,0 +1,2115 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Lecture-to-Life API",
+    "description": "AI-powered lecture learning companion",
+    "version": "0.3.0"
+  },
+  "paths": {
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Register",
+        "description": "Create a new user account and immediately issue a Bearer access token.",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Login",
+        "description": "Authenticate with JSON email and password (used by the web frontend).",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/token": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Login For Access Token",
+        "description": "OAuth2 form-encoded login endpoint for Swagger UI Authorize flow.",
+        "operationId": "login_for_access_token_api_v1_auth_token_post",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_login_for_access_token_api_v1_auth_token_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/profile": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Profile",
+        "description": "Return the currently authenticated user's profile.",
+        "operationId": "profile_api_v1_auth_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lectures": {
+      "get": {
+        "tags": [
+          "Lectures"
+        ],
+        "summary": "List Lectures",
+        "description": "List lectures belonging to the authenticated user, newest first.",
+        "operationId": "list_lectures_api_v1_lectures_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LectureResponse"
+                  },
+                  "title": "Response List Lectures Api V1 Lectures Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lectures/upload": {
+      "post": {
+        "tags": [
+          "Lectures"
+        ],
+        "summary": "Upload Lecture",
+        "description": "Upload a lecture document or recording and start background AI processing.",
+        "operationId": "upload_lecture_api_v1_lectures_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_lecture_api_v1_lectures_upload_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadLectureResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/lectures/{lecture_id}": {
+      "get": {
+        "tags": [
+          "Lectures"
+        ],
+        "summary": "Get Lecture",
+        "description": "Fetch full details for a single lecture owned by the authenticated user.",
+        "operationId": "get_lecture_api_v1_lectures__lecture_id__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lecture_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Lecture Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LectureResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Lectures"
+        ],
+        "summary": "Delete Lecture",
+        "description": "Delete a lecture and remove its stored file from disk.",
+        "operationId": "delete_lecture_api_v1_lectures__lecture_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lecture_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Lecture Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lectures/{lecture_id}/status": {
+      "get": {
+        "tags": [
+          "Lectures"
+        ],
+        "summary": "Get Lecture Status",
+        "description": "Poll processing status and progress for an uploaded lecture.",
+        "operationId": "get_lecture_status_api_v1_lectures__lecture_id__status_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lecture_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Lecture Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LectureStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lectures/{lecture_id}/download": {
+      "get": {
+        "tags": [
+          "Lectures"
+        ],
+        "summary": "Download Lecture",
+        "description": "Download the original uploaded lecture file after verifying ownership.",
+        "operationId": "download_lecture_api_v1_lectures__lecture_id__download_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lecture_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Lecture Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/lectures/{lecture_id}/reprocess": {
+      "post": {
+        "tags": [
+          "Lectures"
+        ],
+        "summary": "Reprocess Lecture",
+        "description": "Re-run extraction, chunking, and AI artifact generation for an existing lecture.",
+        "operationId": "reprocess_lecture_api_v1_lectures__lecture_id__reprocess_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lecture_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Lecture Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReprocessLectureRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadLectureResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/flashcards": {
+      "get": {
+        "tags": [
+          "Flashcards"
+        ],
+        "summary": "List Flashcards",
+        "description": "List flashcards for the authenticated user, optionally filtered by lecture.",
+        "operationId": "list_flashcards_api_v1_flashcards_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lecture_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lecture Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FlashcardResponse"
+                  },
+                  "title": "Response List Flashcards Api V1 Flashcards Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Flashcards"
+        ],
+        "summary": "Create Flashcard",
+        "description": "Create a custom flashcard linked to an owned lecture.",
+        "operationId": "create_flashcard_api_v1_flashcards_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFlashcardRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/flashcards/{flashcard_id}/review": {
+      "post": {
+        "tags": [
+          "Flashcards"
+        ],
+        "summary": "Review Flashcard",
+        "description": "Apply SM-2 spaced-repetition update for a flashcard review rating.",
+        "operationId": "review_flashcard_api_v1_flashcards__flashcard_id__review_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "flashcard_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Flashcard Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewFlashcardRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FlashcardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/flashcards/{flashcard_id}": {
+      "delete": {
+        "tags": [
+          "Flashcards"
+        ],
+        "summary": "Delete Flashcard",
+        "description": "Delete a flashcard owned by the authenticated user.",
+        "operationId": "delete_flashcard_api_v1_flashcards__flashcard_id__delete",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "flashcard_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Flashcard Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/quizzes": {
+      "get": {
+        "tags": [
+          "Quizzes"
+        ],
+        "summary": "List Quizzes",
+        "description": "List practice quizzes owned by the authenticated user.",
+        "operationId": "list_quizzes_api_v1_quizzes_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lecture_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lecture Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/QuizResponse"
+                  },
+                  "title": "Response List Quizzes Api V1 Quizzes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/quizzes/{quiz_id}/attempt": {
+      "post": {
+        "tags": [
+          "Quizzes"
+        ],
+        "summary": "Submit Quiz Attempt",
+        "description": "Grade a submitted quiz attempt server-side and record analytics.",
+        "operationId": "submit_quiz_attempt_api_v1_quizzes__quiz_id__attempt_post",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "quiz_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Quiz Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitQuizRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmitQuizResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tutor/ask": {
+      "post": {
+        "tags": [
+          "AI Tutor"
+        ],
+        "summary": "Ask Tutor",
+        "description": "Answer a question grounded in the user's lectures via hybrid RAG.",
+        "operationId": "ask_tutor_api_v1_tutor_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TutorAskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TutorAskResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tutor/history": {
+      "get": {
+        "tags": [
+          "AI Tutor"
+        ],
+        "summary": "Get Tutor History",
+        "description": "Return persisted AI tutor chat history for the user or a specific lecture.",
+        "operationId": "get_tutor_history_api_v1_tutor_history_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lecture_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lecture Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TutorHistoryMessageResponse"
+                  },
+                  "title": "Response Get Tutor History Api V1 Tutor History Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/progress": {
+      "get": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Get Progress Analytics",
+        "description": "Aggregate weekly study activity, quiz scores, and subject mastery.",
+        "operationId": "get_progress_analytics_api_v1_progress_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgressAnalyticsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Verify API and database connectivity.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_login_for_access_token_api_v1_auth_token_post": {
+        "properties": {
+          "grant_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^password$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Type"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "title": "Password"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": ""
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "format": "password",
+            "title": "Client Secret"
+          }
+        },
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Body_login_for_access_token_api_v1_auth_token_post"
+      },
+      "Body_upload_lecture_api_v1_lectures_upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "subject": {
+            "type": "string",
+            "title": "Subject",
+            "default": "General"
+          },
+          "targets": {
+            "type": "string",
+            "title": "Targets",
+            "default": "[\"summary\",\"flashcards\",\"quiz\",\"conceptMap\"]"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_lecture_api_v1_lectures_upload_post"
+      },
+      "ConceptEdgeSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "target"
+        ],
+        "title": "ConceptEdgeSchema"
+      },
+      "ConceptNodeSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "x": {
+            "type": "number",
+            "title": "X"
+          },
+          "y": {
+            "type": "number",
+            "title": "Y"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "root",
+              "branch",
+              "leaf"
+            ],
+            "title": "Kind",
+            "default": "branch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "x",
+          "y"
+        ],
+        "title": "ConceptNodeSchema"
+      },
+      "CreateFlashcardRequest": {
+        "properties": {
+          "lectureId": {
+            "type": "string",
+            "title": "Lectureid"
+          },
+          "front": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Front"
+          },
+          "back": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Back"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lectureId",
+          "front",
+          "back"
+        ],
+        "title": "CreateFlashcardRequest"
+      },
+      "FlashcardResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "lectureId": {
+            "type": "string",
+            "title": "Lectureid"
+          },
+          "lectureTitle": {
+            "type": "string",
+            "title": "Lecturetitle"
+          },
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "front": {
+            "type": "string",
+            "title": "Front"
+          },
+          "back": {
+            "type": "string",
+            "title": "Back"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "mastery": {
+            "type": "string",
+            "enum": [
+              "new",
+              "learning",
+              "mastered"
+            ],
+            "title": "Mastery"
+          },
+          "nextReviewLabel": {
+            "type": "string",
+            "title": "Nextreviewlabel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "lectureId",
+          "lectureTitle",
+          "subject",
+          "front",
+          "back",
+          "mastery",
+          "nextReviewLabel"
+        ],
+        "title": "FlashcardResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LectureResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "duration": {
+            "type": "string",
+            "title": "Duration"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "processing",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "sourceType": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "docx",
+              "txt",
+              "audio"
+            ],
+            "title": "Sourcetype"
+          },
+          "uploadedAt": {
+            "type": "string",
+            "title": "Uploadedat"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "keyTakeaways": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Keytakeaways"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/LectureSegmentSchema"
+            },
+            "type": "array",
+            "title": "Segments"
+          },
+          "conceptNodes": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptNodeSchema"
+            },
+            "type": "array",
+            "title": "Conceptnodes"
+          },
+          "conceptEdges": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptEdgeSchema"
+            },
+            "type": "array",
+            "title": "Conceptedges"
+          },
+          "flashcardCount": {
+            "type": "integer",
+            "title": "Flashcardcount",
+            "default": 0
+          },
+          "quizCount": {
+            "type": "integer",
+            "title": "Quizcount",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "subject",
+          "duration",
+          "status",
+          "sourceType",
+          "uploadedAt",
+          "summary",
+          "keyTakeaways",
+          "segments",
+          "conceptNodes",
+          "conceptEdges"
+        ],
+        "title": "LectureResponse",
+        "description": "Full lecture representation matching frontend/types/study.ts Lecture."
+      },
+      "LectureSegmentSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "reference",
+          "text"
+        ],
+        "title": "LectureSegmentSchema"
+      },
+      "LectureStatusResponse": {
+        "properties": {
+          "lecture_id": {
+            "type": "string",
+            "title": "Lecture Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "processing",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lecture_id",
+          "status"
+        ],
+        "title": "LectureStatusResponse",
+        "description": "Response returned by GET /api/v1/lectures/{id}/status."
+      },
+      "ProgressAnalyticsResponse": {
+        "properties": {
+          "weeklyStudy": {
+            "items": {
+              "$ref": "#/components/schemas/WeeklyStudyPointSchema"
+            },
+            "type": "array",
+            "title": "Weeklystudy"
+          },
+          "quizTrend": {
+            "items": {
+              "$ref": "#/components/schemas/QuizScorePointSchema"
+            },
+            "type": "array",
+            "title": "Quiztrend"
+          },
+          "subjectMastery": {
+            "items": {
+              "$ref": "#/components/schemas/SubjectMasteryPointSchema"
+            },
+            "type": "array",
+            "title": "Subjectmastery"
+          },
+          "recentLectures": {
+            "items": {
+              "$ref": "#/components/schemas/LectureResponse"
+            },
+            "type": "array",
+            "title": "Recentlectures"
+          },
+          "totalFlashcards": {
+            "type": "integer",
+            "title": "Totalflashcards"
+          },
+          "totalQuizzes": {
+            "type": "integer",
+            "title": "Totalquizzes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weeklyStudy",
+          "quizTrend",
+          "subjectMastery",
+          "recentLectures",
+          "totalFlashcards",
+          "totalQuizzes"
+        ],
+        "title": "ProgressAnalyticsResponse"
+      },
+      "QuizQuestionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "correctIndex": {
+            "type": "integer",
+            "title": "Correctindex"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation"
+          },
+          "sourceRef": {
+            "type": "string",
+            "title": "Sourceref"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "question",
+          "options",
+          "correctIndex",
+          "explanation",
+          "sourceRef"
+        ],
+        "title": "QuizQuestionResponse"
+      },
+      "QuizResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "lectureId": {
+            "type": "string",
+            "title": "Lectureid"
+          },
+          "lectureTitle": {
+            "type": "string",
+            "title": "Lecturetitle"
+          },
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "Easy",
+              "Medium",
+              "Hard"
+            ],
+            "title": "Difficulty"
+          },
+          "estimatedMinutes": {
+            "type": "integer",
+            "title": "Estimatedminutes"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuizQuestionResponse"
+            },
+            "type": "array",
+            "title": "Questions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "lectureId",
+          "lectureTitle",
+          "subject",
+          "title",
+          "difficulty",
+          "estimatedMinutes",
+          "questions"
+        ],
+        "title": "QuizResponse"
+      },
+      "QuizScorePointSchema": {
+        "properties": {
+          "attempt": {
+            "type": "string",
+            "title": "Attempt"
+          },
+          "score": {
+            "type": "integer",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "attempt",
+          "score"
+        ],
+        "title": "QuizScorePointSchema"
+      },
+      "ReprocessLectureRequest": {
+        "properties": {
+          "targets": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "summary",
+                    "flashcards",
+                    "quiz",
+                    "conceptMap"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targets"
+          }
+        },
+        "type": "object",
+        "title": "ReprocessLectureRequest"
+      },
+      "ReviewFlashcardRequest": {
+        "properties": {
+          "flashcardId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flashcardid"
+          },
+          "rating": {
+            "type": "string",
+            "enum": [
+              "again",
+              "hard",
+              "good",
+              "easy"
+            ],
+            "title": "Rating"
+          },
+          "nextMastery": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "new",
+                  "learning",
+                  "mastered"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextmastery"
+          },
+          "nextReviewLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextreviewlabel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rating"
+        ],
+        "title": "ReviewFlashcardRequest"
+      },
+      "SubjectMasteryPointSchema": {
+        "properties": {
+          "subject": {
+            "type": "string",
+            "title": "Subject"
+          },
+          "mastery": {
+            "type": "integer",
+            "title": "Mastery"
+          },
+          "lectures": {
+            "type": "integer",
+            "title": "Lectures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subject",
+          "mastery",
+          "lectures"
+        ],
+        "title": "SubjectMasteryPointSchema"
+      },
+      "SubmitQuizRequest": {
+        "properties": {
+          "quizId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quizid"
+          },
+          "answers": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Answers"
+          },
+          "elapsedSeconds": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Elapsedseconds",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "SubmitQuizRequest"
+      },
+      "SubmitQuizResponse": {
+        "properties": {
+          "quizId": {
+            "type": "string",
+            "title": "Quizid"
+          },
+          "scorePercent": {
+            "type": "integer",
+            "title": "Scorepercent"
+          },
+          "correctCount": {
+            "type": "integer",
+            "title": "Correctcount"
+          },
+          "totalQuestions": {
+            "type": "integer",
+            "title": "Totalquestions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "quizId",
+          "scorePercent",
+          "correctCount",
+          "totalQuestions"
+        ],
+        "title": "SubmitQuizResponse"
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "user"
+        ],
+        "title": "TokenResponse",
+        "description": "JWT access token response paired with the authenticated user profile."
+      },
+      "TutorAskRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "lectureId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lectureid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "TutorAskRequest"
+      },
+      "TutorAskResponse": {
+        "properties": {
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/TutorCitationSchema"
+            },
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answer",
+          "citations"
+        ],
+        "title": "TutorAskResponse"
+      },
+      "TutorCitationSchema": {
+        "properties": {
+          "lectureId": {
+            "type": "string",
+            "title": "Lectureid"
+          },
+          "lectureTitle": {
+            "type": "string",
+            "title": "Lecturetitle"
+          },
+          "reference": {
+            "type": "string",
+            "title": "Reference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lectureId",
+          "lectureTitle",
+          "reference"
+        ],
+        "title": "TutorCitationSchema"
+      },
+      "TutorHistoryMessageResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/TutorCitationSchema"
+            },
+            "type": "array",
+            "title": "Citations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "content",
+          "timestamp"
+        ],
+        "title": "TutorHistoryMessageResponse"
+      },
+      "UploadLectureResponse": {
+        "properties": {
+          "lecture_id": {
+            "type": "string",
+            "title": "Lecture Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "processing",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lecture_id",
+          "status"
+        ],
+        "title": "UploadLectureResponse",
+        "description": "Response returned by POST /api/v1/lectures/upload."
+      },
+      "UserCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 72,
+            "minLength": 8,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "password"
+        ],
+        "title": "UserCreate",
+        "description": "Payload for registering a new user account."
+      },
+      "UserLogin": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "UserLogin",
+        "description": "Payload for JSON email/password sign-in."
+      },
+      "UserResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "email"
+        ],
+        "title": "UserResponse",
+        "description": "Public user profile returned by auth endpoints."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "WeeklyStudyPointSchema": {
+        "properties": {
+          "day": {
+            "type": "string",
+            "title": "Day"
+          },
+          "minutes": {
+            "type": "integer",
+            "title": "Minutes"
+          },
+          "cards": {
+            "type": "integer",
+            "title": "Cards"
+          }
+        },
+        "type": "object",
+        "required": [
+          "day",
+          "minutes",
+          "cards"
+        ],
+        "title": "WeeklyStudyPointSchema"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "/api/v1/auth/token"
+          }
+        }
+      }
+    }
+  }
+}

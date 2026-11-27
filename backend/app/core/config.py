@@ -30,6 +30,9 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://127.0.0.1:3000",
     ]
+    RATE_LIMIT_ENABLED: bool = True
+    AUTH_RATE_LIMIT_REQUESTS: int = 30
+    AUTH_RATE_LIMIT_WINDOW_SECONDS: int = 60
 
     UPLOAD_DIR: str = "storage/lectures"
     MAX_UPLOAD_SIZE_MB: int = 100

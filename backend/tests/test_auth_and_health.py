@@ -142,3 +142,22 @@ def test_inactive_user_cannot_login_or_access_profile(
         headers={"Authorization": f"Bearer {token}"},
     )
     assert profile_res.status_code == 401
+
+
+def test_auth_rate_limiter_blocks_excess_requests(client: TestClient) -> None:
+    app.state.auth_rate_limit_requests = 2
+    app.state.auth_rate_limit_window_seconds = 60
+
+    for _ in range(2):
+        res = client.post(
+            "/api/v1/auth/login",
+            json={"email": "nobody@example.com", "password": "WrongPassword123"},
+        )
+        assert res.status_code == 401
+
+    blocked = client.post(
+        "/api/v1/auth/login",
+        json={"email": "nobody@example.com", "password": "WrongPassword123"},
+    )
+    assert blocked.status_code == 429
+    assert "Too many requests" in blocked.json()["detail"]

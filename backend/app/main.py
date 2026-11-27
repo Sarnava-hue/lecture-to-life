@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, status
@@ -15,10 +16,15 @@ from app.api.tutor import router as tutor_router
 from app.core.config import settings
 from app.db.dependencies import get_db
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+
 app = FastAPI(
     title="Lecture-to-Life API",
     description="AI-powered lecture learning companion",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 app.add_middleware(

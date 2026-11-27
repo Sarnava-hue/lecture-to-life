@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import delete
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
@@ -13,13 +14,7 @@ from app.models.tutor import StudyActivityLog
 from app.services.chunking_service import chunk_segments
 from app.services.extraction_service import extract_lecture_content
 from app.services.gemini_service import embed_texts, generate_study_bundle
-
-
-def _resolve_file_path(storage_path: str, upload_dir: Path) -> Path:
-    candidate = Path(storage_path)
-    if candidate.is_absolute():
-        return candidate
-    return (upload_dir / candidate).resolve()
+from app.utils.file_utils import resolve_safe_stored_path
 
 
 def process_lecture_background(
@@ -37,7 +32,12 @@ def process_lecture_background(
             return
 
         try:
-            file_path = _resolve_file_path(document.storage_path, base_upload_dir)
+            file_path = resolve_safe_stored_path(
+                document.storage_path, upload_dir=base_upload_dir
+            )
+            if file_path is None:
+                raise FileNotFoundError("Lecture file path could not be resolved.")
+
             extracted_text, segments, duration = extract_lecture_content(
                 file_path=file_path,
                 source_type=document.source_type,
@@ -52,6 +52,10 @@ def process_lecture_background(
             document.progress = 40
             db.commit()
 
+            # Replace existing chunks cleanly so reprocessing never duplicates RAG index rows.
+            db.execute(
+                delete(LectureChunk).where(LectureChunk.document_id == document.id)
+            )
             raw_chunks = chunk_segments(segments)
             embeddings = embed_texts(
                 [c["text"] for c in raw_chunks], client=gemini_client
@@ -93,6 +97,9 @@ def process_lecture_background(
             document.concept_edges = [e.model_dump() for e in bundle.concept_edges]
 
             if "flashcards" in targets:
+                db.execute(
+                    delete(Flashcard).where(Flashcard.document_id == document.id)
+                )
                 for card in bundle.flashcards:
                     db.add(
                         Flashcard(
@@ -107,6 +114,13 @@ def process_lecture_background(
                     )
 
             if "quiz" in targets and bundle.quiz and bundle.quiz.questions:
+                existing_quizzes = db.query(Quiz).filter(
+                    Quiz.document_id == document.id
+                ).all()
+                for existing_quiz in existing_quizzes:
+                    db.delete(existing_quiz)
+                db.flush()
+
                 quiz = Quiz(
                     user_id=document.user_id,
                     document_id=document.id,

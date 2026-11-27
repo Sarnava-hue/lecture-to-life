@@ -211,3 +211,51 @@ def test_user_isolation_and_delete_cleans_file(
         client.get(f"/api/v1/lectures/{lecture_id}", headers=auth_headers).status_code
         == 404
     )
+
+
+def test_download_and_reprocess_lecture(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    second_user_headers: dict[str, str],
+) -> None:
+    raw_bytes = (
+        b"Backpropagation computes gradients layer by layer.\n\n"
+        b"Regularization reduces overfitting on small datasets."
+    )
+    upload_res = client.post(
+        "/api/v1/lectures/upload",
+        headers=auth_headers,
+        files={"file": ("dl_test.txt", raw_bytes, "text/plain")},
+        data={"title": "DL Notes", "targets": '["summary","flashcards","quiz"]'},
+    )
+    assert upload_res.status_code == 201
+    lecture_id = upload_res.json()["lecture_id"]
+
+    # Download works for owner and rejects other users.
+    dl_owner = client.get(
+        f"/api/v1/lectures/{lecture_id}/download", headers=auth_headers
+    )
+    assert dl_owner.status_code == 200
+    assert dl_owner.content == raw_bytes
+
+    dl_other = client.get(
+        f"/api/v1/lectures/{lecture_id}/download", headers=second_user_headers
+    )
+    assert dl_other.status_code == 404
+
+    # Reprocess updates artifacts without duplicating flashcards or quizzes.
+    reprocess_res = client.post(
+        f"/api/v1/lectures/{lecture_id}/reprocess",
+        headers=auth_headers,
+        json={"targets": ["summary", "flashcards", "quiz", "conceptMap"]},
+    )
+    assert reprocess_res.status_code == 202
+    assert reprocess_res.json()["status"] == "processing"
+
+    lecture = client.get(
+        f"/api/v1/lectures/{lecture_id}", headers=auth_headers
+    ).json()
+    assert lecture["status"] == "ready"
+    assert lecture["flashcardCount"] == 2
+    assert lecture["quizCount"] == 1
+    assert len(lecture["conceptNodes"]) >= 2

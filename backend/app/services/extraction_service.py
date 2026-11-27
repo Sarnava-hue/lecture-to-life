@@ -1,14 +1,68 @@
+import io
+import logging
+import shutil
 from pathlib import Path
 from typing import Any
 
 import docx
+import pytesseract
+from PIL import Image
 from pypdf import PdfReader
 
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
+
+def _ocr_pdf_page_images(page: Any, gemini_client: Any = None) -> str:
+    """Attempt OCR on embedded page images when a PDF page lacks a text layer."""
+    try:
+        images = list(getattr(page, "images", []) or [])
+    except Exception:
+        return ""
+
+    if not images:
+        return ""
+
+    has_tesseract = shutil.which("tesseract") is not None
+    has_gemini = gemini_client is not None or bool(settings.GEMINI_API_KEY.strip())
+    if not has_tesseract and not has_gemini:
+        return ""
+
+    extracted_parts: list[str] = []
+    for image_file in images:
+        data = getattr(image_file, "data", b"")
+        if not data:
+            continue
+
+        text = ""
+        if has_tesseract:
+            try:
+                with Image.open(io.BytesIO(data)) as pil_image:
+                    text = pytesseract.image_to_string(pil_image).strip()
+            except Exception as exc:
+                logger.warning("Tesseract OCR failed on PDF image: %s", exc)
+
+        if not text and has_gemini:
+            from app.services.gemini_service import ocr_image_bytes_with_gemini
+
+            name = str(getattr(image_file, "name", "")).lower()
+            mime_type = "image/jpeg" if name.endswith((".jpg", ".jpeg")) else "image/png"
+            try:
+                text = ocr_image_bytes_with_gemini(
+                    data, mime_type=mime_type, client=gemini_client
+                )
+            except Exception as exc:
+                logger.warning("Gemini OCR failed on PDF image: %s", exc)
+
+        if text:
+            extracted_parts.append(text)
+
+    return "\n".join(extracted_parts).strip()
+
 
 def _extract_pdf_segments(
-    file_path: Path, lecture_id: int
+    file_path: Path, lecture_id: int, gemini_client: Any = None
 ) -> tuple[str, list[dict[str, Any]], str]:
     reader = PdfReader(str(file_path))
     pages_text: list[str] = []
@@ -16,6 +70,11 @@ def _extract_pdf_segments(
 
     for index, page in enumerate(reader.pages, start=1):
         text = (page.extract_text() or "").strip()
+        if len(text) < 20:
+            ocr_text = _ocr_pdf_page_images(page, gemini_client=gemini_client)
+            if ocr_text:
+                text = f"{text}\n{ocr_text}".strip() if text else ocr_text
+
         if text:
             pages_text.append(text)
             segments.append(
@@ -112,7 +171,9 @@ def extract_lecture_content(
         return "", [], "—"
 
     if source_type == "pdf":
-        return _extract_pdf_segments(file_path, lecture_id)
+        return _extract_pdf_segments(
+            file_path, lecture_id, gemini_client=gemini_client
+        )
 
     if source_type == "docx":
         return _extract_docx_segments(file_path, lecture_id)

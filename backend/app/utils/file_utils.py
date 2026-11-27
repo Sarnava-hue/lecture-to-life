@@ -191,10 +191,12 @@ async def save_validated_upload(
     return destination, unique_filename, total_bytes
 
 
-def delete_stored_file(storage_path: str, upload_dir: Path | None = None) -> None:
-    """Safely delete an uploaded file inside the configured upload directory."""
+def resolve_safe_stored_path(
+    storage_path: str, upload_dir: Path | None = None
+) -> Path | None:
+    """Resolve a stored file path only if it stays strictly inside upload_dir."""
     if not storage_path or storage_path == "legacy/unknown":
-        return
+        return None
 
     base_dir = (upload_dir or settings.upload_dir_path).resolve()
     candidate = Path(storage_path)
@@ -204,9 +206,13 @@ def delete_stored_file(storage_path: str, upload_dir: Path | None = None) -> Non
         else (base_dir / candidate).resolve()
     )
 
-    # Guard against path traversal outside the upload directory.
     if base_dir not in target.parents and target != base_dir:
-        return
+        return None
+    return target
 
-    if target.exists() and target.is_file():
+
+def delete_stored_file(storage_path: str, upload_dir: Path | None = None) -> None:
+    """Safely delete an uploaded file inside the configured upload directory."""
+    target = resolve_safe_stored_path(storage_path, upload_dir=upload_dir)
+    if target is not None and target.exists() and target.is_file():
         target.unlink()

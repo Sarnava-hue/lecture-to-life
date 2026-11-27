@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
+from app.core.rate_limit import enforce_auth_rate_limit
 from app.core.security import (
     create_access_token,
     hash_password,
@@ -61,6 +62,7 @@ def _build_token_response(user: User) -> TokenResponse:
     "/register",
     response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(enforce_auth_rate_limit)],
 )
 def register(
     user_data: UserCreate,
@@ -89,7 +91,11 @@ def register(
     return _build_token_response(user)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+    dependencies=[Depends(enforce_auth_rate_limit)],
+)
 def login(
     credentials: UserLogin,
     db: Annotated[Session, Depends(get_db)],
@@ -99,7 +105,11 @@ def login(
     return _build_token_response(user)
 
 
-@router.post("/token", response_model=TokenResponse)
+@router.post(
+    "/token",
+    response_model=TokenResponse,
+    dependencies=[Depends(enforce_auth_rate_limit)],
+)
 def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[Session, Depends(get_db)],
